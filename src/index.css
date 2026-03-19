@@ -1,0 +1,282 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --g: #22c55e;
+  --g2: #16a34a;
+  --o: #f97316;
+  --b: #3b82f6;
+  --red: #ef4444;
+  --bg: #0a0a0a;
+  --bg2: #111111;
+  --bg3: #1a1a1a;
+  --bg4: #222222;
+  --brd: rgba(255,255,255,0.08);
+  --brd2: rgba(255,255,255,0.13);
+  --text: #e8e8e8;
+  --mut: #777;
+  --mut2: #444;
+  --font: 'Inter', system-ui, sans-serif;
+}
+
+html, body, #root { height: 100%; }
+body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; -webkit-font-smoothing: antialiased; }
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 4px; }
+
+input, select, textarea, button { font-family: var(--font); }
+
+a { color: inherit; text-decoration: none; }
+
+.btn-primary {
+  background: var(--g);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-primary:hover { background: var(--g2); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-secondary {
+  background: var(--bg3);
+  color: var(--mut);
+  border: 0.5px solid var(--brd2);
+  border-radius: 8px;
+  padding: 9px 18px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-secondary:hover { color: var(--text); }
+
+.btn-ghost {
+  background: none;
+  color: var(--mut);
+  border: 0.5px solid var(--brd2);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-ghost:hover { color: var(--text); background: var(--bg3); }
+
+.form-label {
+  font-size: 10px;
+  color: var(--mut);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 5px;
+  display: block;
+}
+
+.form-input {
+  width: 100%;
+  background: var(--bg3);
+  border: 0.5px solid var(--brd2);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 13px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.form-input:focus { border-color: var(--g); }
+.form-input::placeholder { color: var(--mut2); }
+
+.badge {
+  display: inline-block;
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-size: 10px;
+  font-weight: 500;
+}
+.badge-blue { background: rgba(59,130,246,0.15); color: var(--b); }
+.badge-orange { background: rgba(249,115,22,0.15); color: var(--o); }
+.badge-green { background: rgba(34,197,94,0.15); color: var(--g); }
+.badge-gray { background: rgba(136,136,136,0.12); color: var(--mut); }
+.badge-red { background: rgba(239,68,68,0.15); color: var(--red); }
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 10px;
+}
+.status-badge::before {
+  content: '';
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.status-stock { background: rgba(34,197,94,0.1); color: var(--g); }
+.status-vendu { background: rgba(119,119,119,0.1); color: var(--mut); }
+.status-reserve { background: rgba(249,115,22,0.1); color: var(--o); }
+.status-livraison { background: rgba(59,130,246,0.1); color: var(--b); }
+
+.profit-pos { color: var(--g); }
+.profit-neg { color: var(--red); }
+
+.card {
+  background: var(--bg2);
+  border: 0.5px solid var(--brd2);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 20px;
+}
+
+.modal {
+  background: var(--bg2);
+  border: 0.5px solid var(--brd2);
+  border-radius: 16px;
+  padding: 28px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-title {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 22px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.form-grid .full { grid-column: 1 / -1; }
+
+.form-group { display: flex; flex-direction: column; }
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 22px;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.kpi-card {
+  background: var(--bg2);
+  border: 0.5px solid var(--brd2);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+
+.kpi-label {
+  font-size: 10px;
+  color: var(--mut);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 8px;
+}
+
+.kpi-value {
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+}
+
+.kpi-sub {
+  font-size: 11px;
+  color: var(--mut);
+  margin-top: 4px;
+}
+
+.alert-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: rgba(249,115,22,0.07);
+  border: 0.5px solid rgba(249,115,22,0.3);
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.table-container {
+  background: var(--bg2);
+  border: 0.5px solid var(--brd2);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  flex-wrap: wrap;
+  gap: 10px;
+  border-bottom: 0.5px solid var(--brd);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  font-size: 10px;
+  color: var(--mut);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding: 10px 16px;
+  text-align: left;
+  font-weight: 400;
+  border-bottom: 0.5px solid var(--brd);
+  white-space: nowrap;
+}
+
+td {
+  padding: 11px 16px;
+  border-bottom: 0.5px solid var(--brd);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--bg3); cursor: pointer; }
+
+.empty-state {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--mut);
+}
+.empty-state p { margin-top: 8px; font-size: 12px; }
+
+@media (max-width: 768px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .form-grid { grid-template-columns: 1fr; }
+  .form-grid .full { grid-column: 1; }
+}
