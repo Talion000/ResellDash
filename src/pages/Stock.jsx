@@ -11,7 +11,7 @@ export default function Stock() {
   const [editItem, setEditItem] = useState(null)
   const [search, setSearch] = useState('')
   const [filterCat, setFilterCat] = useState(searchParams.get('cat') || '')
-  const [filterSt, setFilterSt] = useState('')
+  const [filterSt, setFilterSt] = useState(searchParams.get('st') || '')
   const [filterPf, setFilterPf] = useState('')
   const [filterTaille, setFilterTaille] = useState('')
   const [sortBy, setSortBy] = useState('date_achat')
@@ -130,7 +130,7 @@ export default function Stock() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {[
               { val: filterCat, set: setFilterCat, opts: categories.map(c => c.name), placeholder: 'Catégorie' },
-              { val: filterSt, set: setFilterSt, opts: STATUTS, placeholder: 'Statut' },
+              { val: filterSt, set: setFilterSt, opts: STATUTS, placeholder: 'Tous statuts' },
               { val: filterPf, set: setFilterPf, opts: plateformes, placeholder: 'Plateforme' },
               { val: filterTaille, set: setFilterTaille, opts: tailles, placeholder: 'Taille/Réf' },
             ].map((f, i) => (
