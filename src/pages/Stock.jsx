@@ -182,22 +182,22 @@ export default function Stock() {
               const isSelected = selected.includes(item.id)
               const badgeStyle = catBadgeStyle(item.categorie, categories)
               return (
-                <tr key={item.id} style={{ background: isSelected ? 'rgba(34,197,94,0.04)' : undefined }}>
+                <tr key={item.id} style={{ background: isSelected ? 'rgba(34,197,94,0.04)' : undefined, cursor: 'pointer' }} onClick={() => { setEditItem(item); setShowModal(true) }}>
                   <td onClick={e => e.stopPropagation()}>
                     <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(item.id)} style={{ cursor: 'pointer' }} />
                   </td>
-                  <td onClick={() => { setEditItem(item); setShowModal(true) }}>
+                  <td>
                     {item.image_url
                       ? <img src={item.image_url} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, border: '0.5px solid var(--brd2)' }} />
                       : <div style={{ width: 40, height: 40, borderRadius: 6, background: 'var(--bg3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>📦</div>
                     }
                   </td>
-                  <td onClick={() => { setEditItem(item); setShowModal(true) }}>
+                  <td>
                     <div style={{ fontWeight: 500, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.nom}</div>
                     {isOld && <div style={{ fontSize: 10, color: 'var(--o)' }}>⚠ {days}j en stock</div>}
                     {item.notes && <div style={{ fontSize: 10, color: 'var(--mut)' }}>{item.notes}</div>}
                   </td>
-                  <td onClick={() => { setEditItem(item); setShowModal(true) }}>
+                  <td>
                     <span className="badge" style={badgeStyle}>{item.categorie}</span>
                   </td>
                   <td style={{ color: 'var(--mut)' }}>{item.taille_ref || '—'}</td>
