@@ -50,7 +50,8 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
 
   const set = (k, v) => setForm(f => {
     const updated = { ...f, [k]: v }
-    if (k === 'prix_vente' && v && parseFloat(v) > 0 && !updated.quantite_mode) {
+    if (k === 'prix_vente' && v && parseFloat(v) > 0 && !updated.quantite_mode &&
+        !['En retour', 'Remboursé'].includes(updated.statut)) {
       updated.statut = 'Vendu'
     }
     return updated
@@ -257,6 +258,13 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
 
         {tab === 'ventes' && isEdit && (
           <div>
+            {/* Infos achat */}
+            <div style={{ background: 'var(--bg3)', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 12, display: 'flex', gap: 20 }}>
+              <span style={{ color: 'var(--mut)' }}>Achat unitaire : <strong style={{ color: 'var(--b)' }}>{fmtEur(parseFloat(form.prix_achat))}</strong></span>
+              <span style={{ color: 'var(--mut)' }}>Coût total : <strong style={{ color: 'var(--b)' }}>{fmtEur(coutTotal)}</strong></span>
+              {form.plateforme_achat && <span style={{ color: 'var(--mut)' }}>Plateforme : <strong style={{ color: 'var(--text)' }}>{form.plateforme_achat}</strong></span>}
+              {form.date_achat && <span style={{ color: 'var(--mut)' }}>Acheté le : <strong style={{ color: 'var(--text)' }}>{new Date(form.date_achat).toLocaleDateString('fr-FR')}</strong></span>}
+            </div>
             {/* Stats rapides */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 18 }}>
               {[

@@ -56,11 +56,12 @@ export function catBadgeStyle(cat, categories = []) {
 
 export function statusClass(statut) {
   const map = {
+    'Acheté':       'status-achete',
+    'En livraison': 'status-livraison',
     'En stock':     'status-stock',
     'Vendu':        'status-vendu',
-    'Réservé':      'status-reserve',
-    'En livraison': 'status-livraison',
     'En retour':    'status-retour',
+    'Remboursé':    'status-rembourse',
   }
   return map[statut] || 'status-vendu'
 }
@@ -83,4 +84,4 @@ export function formatMonth(yyyymm) {
   return names[parseInt(m) - 1] + ' ' + y.slice(2)
 }
 
-export const STATUTS = ['En stock', 'En livraison', 'Réservé', 'En retour', 'Vendu']
+export const STATUTS = ['Acheté', 'En livraison', 'En stock', 'Vendu', 'En retour', 'Remboursé']

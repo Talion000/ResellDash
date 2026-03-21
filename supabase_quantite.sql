@@ -19,3 +19,8 @@ CREATE POLICY "Users can manage own ventes"
   ON ventes_unitaires FOR ALL
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
+
+-- Mettre à jour la contrainte de statut
+ALTER TABLE items DROP CONSTRAINT IF EXISTS items_statut_check;
+ALTER TABLE items ADD CONSTRAINT items_statut_check 
+  CHECK (statut IN ('Acheté', 'En livraison', 'En stock', 'Vendu', 'En retour', 'Remboursé'));

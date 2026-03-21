@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Bar, Doughnut } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend } from 'chart.js'
 import { useItemsContext } from '../hooks/ItemsContext'
@@ -8,6 +9,7 @@ import { profit, rendement, fmtEur, fmtPct, daysSince, catBadgeStyle, catColor, 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend)
 
 export default function Dashboard() {
+  const navigate = useNavigate()
   const { items, categories, loading, addItem, updateItem, deleteItem, duplicateItem } = useItemsContext()
   const [showModal, setShowModal] = useState(false)
   const [editItem, setEditItem] = useState(null)
@@ -133,8 +135,8 @@ export default function Dashboard() {
           </div>
           <div className="kpi-sub" style={{ color: avgROI >= 0 ? 'var(--g)' : 'var(--red)' }}>{fmtPct(avgROI)} ROI moyen</div>
         </div>
-        <div className="kpi-card">
-          <div className="kpi-label">Valeur stock</div>
+        <div className="kpi-card" style={{ cursor: 'pointer' }} onClick={() => navigate('/stock')}>
+          <div className="kpi-label">Valeur stock ↗</div>
           <div className="kpi-value" style={{ color: 'var(--o)' }}>{fmtEur(totalStock)}</div>
           <div className="kpi-sub">{stockItems.length} items en cours</div>
         </div>
