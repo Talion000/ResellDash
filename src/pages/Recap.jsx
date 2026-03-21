@@ -5,15 +5,20 @@ import { profit, fmtEur, fmtPct } from '../lib/utils'
 const MONTHS_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
 
 function parseDate(str) {
-  if (!str) return null
-  if (typeof str === 'string' && str.includes('/')) {
-    const parts = str.split('/')
-    if (parts.length === 3) {
-      const [d, m, y] = parts
-      return `${y.length === 2 ? '20'+y : y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`
-    }
+  if (!str || !str.trim()) return null
+  const s = str.trim()
+  // MM/DD/YYYY (Excel US format from this CSV)
+  if (s.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+    const [m, d, y] = s.split('/')
+    return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`
   }
-  if (typeof str === 'string' && str.match(/^\d{4}-\d{2}-\d{2}/)) return str.split('T')[0]
+  // DD/MM/YYYY
+  if (s.match(/^\d{1,2}\/\d{1,2}\/\d{2}$/)) {
+    const [d, m, y] = s.split('/')
+    return `20${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`
+  }
+  // Already YYYY-MM-DD
+  if (s.match(/^\d{4}-\d{2}-\d{2}/)) return s.split('T')[0]
   return null
 }
 
@@ -42,11 +47,19 @@ function parseCSV(text) {
 function mapRow(row, categorie) {
   const nom = row['nom'] || row['name'] || row['article'] || row['item'] || ''
   const taille = row['size'] || row['taille'] || row["taille/réf"] || row['ref'] || row['référence'] || ''
-  const prixAchat = parsePrice(row["prix d'achat"] || row['prix_achat'] || row['achat'] || row['buy_price'] || '')
-  const dateAchat = parseDate(row["date d'achat"] || row['date_achat'] || row['date achat'] || '')
-  const prixVente = parsePrice(row['prix de vente'] || row['prix_vente'] || row['vente'] || row['sell_price'] || '')
-  const dateVente = parseDate(row['date de vente'] || row['date_vente'] || row['date vente'] || '')
-  const plateforme = row["plateforme d'achat"] || row['plateforme'] || row['platform'] || ''
+  const prixAchat = parsePrice(
+    row["prix d'achat"] || row["prix d\'achat"] || row['prix_achat'] || row['achat'] || row['buy_price'] || ''
+  )
+  const dateAchat = parseDate(
+    row["date d'achat"] || row["date d\'achat"] || row['date_achat'] || row['date achat'] || ''
+  )
+  const prixVente = parsePrice(
+    row['prix de vente'] || row['prix_vente'] || row['vente'] || row['sell_price'] || ''
+  )
+  const dateVente = parseDate(
+    row['date de vente'] || row['date_vente'] || row['date vente'] || ''
+  )
+  const plateforme = row["plateforme d'achat"] || row['plateforme dachat'] || row['plateforme'] || row['platform'] || ''
   if (!nom || !prixAchat) return null
   return {
     nom, categorie,
@@ -119,15 +132,18 @@ export default function Recap() {
   const handleFileChange = (e) => {
     const file = e.target.files[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      const rows = parseCSV(ev.target.result)
+    // Try UTF-8 first, fallback to latin-1 for Windows Excel exports
+    const tryParse = (text) => {
+      const rows = parseCSV(text)
       const mapped = rows.map(r => mapRow(r, importCategorie)).filter(Boolean)
       setParsedRows(mapped)
       setPreview(mapped.slice(0, 5))
       setShowImportModal(true)
     }
-    reader.readAsText(file, 'UTF-8')
+    const reader = new FileReader()
+    reader.onload = (ev) => tryParse(ev.target.result)
+    // Use latin-1 to handle Windows Excel CSV exports
+    reader.readAsText(file, 'windows-1252')
   }
 
   const handleImport = async () => {
