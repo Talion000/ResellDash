@@ -32,7 +32,7 @@ function parseCSV(text) {
   const lines = text.trim().split('\n')
   if (lines.length < 2) return []
   const sep = lines[0].includes(';') ? ';' : ','
-  const headers = lines[0].split(sep).map(h => h.trim().toLowerCase().replace(/['"]/g, ''))
+  const headers = lines[0].split(sep).map(h => h.trim().toLowerCase().replace(/[\u0091-\u0097'"\u2018\u2019]/g, "'").replace(/[^a-z0-9 '/éèêàùû°-]/g, ''))
   const rows = []
   for (let i = 1; i < lines.length; i++) {
     const vals = lines[i].split(sep).map(v => v.trim().replace(/^["']|["']$/g, ''))
@@ -47,19 +47,19 @@ function parseCSV(text) {
 function mapRow(row, categorie) {
   const nom = row['nom'] || row['name'] || row['article'] || row['item'] || ''
   const taille = row['size'] || row['taille'] || row["taille/réf"] || row['ref'] || row['référence'] || ''
-  const prixAchat = parsePrice(
-    row["prix d'achat"] || row["prix d\'achat"] || row['prix_achat'] || row['achat'] || row['buy_price'] || ''
-  )
-  const dateAchat = parseDate(
-    row["date d'achat"] || row["date d\'achat"] || row['date_achat'] || row['date achat'] || ''
-  )
-  const prixVente = parsePrice(
-    row['prix de vente'] || row['prix_vente'] || row['vente'] || row['sell_price'] || ''
-  )
-  const dateVente = parseDate(
-    row['date de vente'] || row['date_vente'] || row['date vente'] || ''
-  )
-  const plateforme = row["plateforme d'achat"] || row['plateforme dachat'] || row['plateforme'] || row['platform'] || ''
+  const getCol = (row, ...keys) => {
+    for (const k of keys) {
+      const found = Object.keys(row).find(rk => rk.replace(/[^a-z0-9]/g,'') === k.replace(/[^a-z0-9]/g,''))
+      if (found && row[found]) return row[found]
+    }
+    return ''
+  }
+  const prixAchat = parsePrice(getCol(row, "prix d'achat", 'prixdachat', 'achat', 'buy_price'))
+  const dateAchat = parseDate(getCol(row, "date d'achat", 'datedachat', 'date achat'))
+  const prixVente = parsePrice(getCol(row, 'prix de vente', 'prixdevente', 'vente', 'sell_price'))
+  const dateVente = parseDate(getCol(row, 'date de vente', 'datedevente', 'date vente'))
+  const pfKey = Object.keys(row).find(k => k.replace(/[^a-z]/g,'').includes('plateformedachat') || k.includes('plateforme')) || ''
+  const plateforme = row[pfKey] || ''
   if (!nom || !prixAchat) return null
   return {
     nom, categorie,
