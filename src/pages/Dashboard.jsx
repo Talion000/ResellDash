@@ -8,6 +8,8 @@ import { profit, rendement, fmtEur, fmtPct, daysSince, catBadgeStyle, catColor, 
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend)
 
+const EXCLUDED_STATUTS = ['Remboursé', 'En retour']
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const { items, categories, loading, addItem, updateItem, deleteItem, duplicateItem } = useItemsContext()
@@ -19,8 +21,15 @@ export default function Dashboard() {
   const [filterPf, setFilterPf] = useState('')
   const [sortOrder, setSortOrder] = useState('recent')
 
-  const soldItems = useMemo(() => items.filter(i => i.statut === 'Vendu' && i.prix_vente), [items])
-  const stockItems = useMemo(() => items.filter(i => i.statut !== 'Vendu'), [items])
+  // Items filtrés par catégorie globale (pour les KPIs)
+  const kpiItems = useMemo(() => items.filter(i => {
+    if (filterCat && i.categorie !== filterCat) return false
+    return true
+  }), [items, filterCat])
+
+  // Exclure remboursé/retour des stats
+  const soldItems = useMemo(() => kpiItems.filter(i => i.statut === 'Vendu' && i.prix_vente), [kpiItems])
+  const stockItems = useMemo(() => kpiItems.filter(i => !['Vendu', ...EXCLUDED_STATUTS].includes(i.statut)), [kpiItems])
   const alertItems = useMemo(() => stockItems.filter(i => daysSince(i.date_achat) > 90), [stockItems])
 
   const totalCA = useMemo(() => soldItems.reduce((s, i) => s + (i.prix_vente || 0), 0), [soldItems])
@@ -44,14 +53,14 @@ export default function Dashboard() {
 
   const monthlyData = useMemo(() => {
     const grouped = groupByMonth(soldItems, 'date_vente')
-    const achatGrouped = groupByMonth(items.filter(i => i.date_achat), 'date_achat')
+    const achatGrouped = groupByMonth(kpiItems.filter(i => i.date_achat), 'date_achat')
     const allKeys = [...new Set([...Object.keys(grouped), ...Object.keys(achatGrouped)])].sort().slice(-7)
     return {
       labels: allKeys.map(formatMonth),
       ca: allKeys.map(k => grouped[k]?.reduce((s, i) => s + (i.prix_vente || 0), 0) || 0),
       achats: allKeys.map(k => achatGrouped[k]?.reduce((s, i) => s + (i.prix_achat || 0), 0) || 0),
     }
-  }, [soldItems, items])
+  }, [soldItems, kpiItems])
 
   const catData = useMemo(() => {
     const map = {}
@@ -102,6 +111,7 @@ export default function Dashboard() {
 
   return (
     <div style={{ padding: '20px 28px' }}>
+      {/* Topbar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div style={{ fontSize: 18, fontWeight: 500, letterSpacing: '-0.3px' }}>Dashboard</div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -114,6 +124,26 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Filtre global catégorie */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+        {['', ...categories.map(c => c.name)].map(cat => {
+          const isActive = filterCat === cat
+          const color = cat ? catColor(cat, categories) : 'var(--text)'
+          return (
+            <button key={cat || 'all'} onClick={() => setFilterCat(cat)}
+              style={{
+                padding: '5px 14px', borderRadius: 20, fontSize: 12, cursor: 'pointer',
+                background: isActive ? (cat ? color + '22' : 'var(--bg3)') : 'var(--bg2)',
+                color: isActive ? (cat ? color : 'var(--text)') : 'var(--mut)',
+                border: `0.5px solid ${isActive ? (cat ? color : 'var(--brd2)') : 'var(--brd)'}`,
+                transition: 'all 0.15s',
+              }}>
+              {cat || 'Toutes catégories'}
+            </button>
+          )
+        })}
+      </div>
+
       {alertItems.length > 0 && (
         <div className="alert-banner" style={{ marginBottom: 20 }}>
           <span style={{ color: 'var(--o)', fontSize: 15 }}>⚠</span>
@@ -121,7 +151,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* KPIs — vert=benef, bleu=achats, orange=stock */}
+      {/* KPIs */}
       <div className="kpi-grid" style={{ marginBottom: 20 }}>
         <div className="kpi-card">
           <div className="kpi-label">CA total</div>
@@ -135,7 +165,7 @@ export default function Dashboard() {
           </div>
           <div className="kpi-sub" style={{ color: avgROI >= 0 ? 'var(--g)' : 'var(--red)' }}>{fmtPct(avgROI)} ROI moyen</div>
         </div>
-        <div className="kpi-card" style={{ cursor: 'pointer' }} onClick={() => navigate('/stock')}>
+        <div className="kpi-card" style={{ cursor: 'pointer' }} onClick={() => navigate('/stock?st=En+stock')}>
           <div className="kpi-label">Valeur stock ↗</div>
           <div className="kpi-value" style={{ color: 'var(--o)' }}>{fmtEur(totalStock)}</div>
           <div className="kpi-sub">{stockItems.length} items en cours</div>
@@ -153,7 +183,7 @@ export default function Dashboard() {
             <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>Évolution mensuelle</div>
             <div style={{ fontSize: 11, color: 'var(--mut)', marginBottom: 14 }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginRight: 12 }}>
-                <span style={{ width: 8, height: 8, background: '#22c55e', borderRadius: 2, display: 'inline-block' }} /> CA / Bénéfice
+                <span style={{ width: 8, height: 8, background: '#22c55e', borderRadius: 2, display: 'inline-block' }} /> CA
               </span>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                 <span style={{ width: 8, height: 8, background: '#3b82f6', borderRadius: 2, display: 'inline-block' }} /> Achats
@@ -195,17 +225,17 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Table */}
       <div className="table-container">
         <div className="table-header">
           <div style={{ fontSize: 14, fontWeight: 500 }}>Stock & Historique</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <select className="form-input" style={{ padding: '5px 10px', fontSize: 11, borderRadius: 20, width: 'auto' }}
               value={sortOrder} onChange={e => setSortOrder(e.target.value)}>
               <option value="recent">Plus récent</option>
               <option value="ancien">Plus ancien</option>
             </select>
             {[
-              { val: filterCat, set: setFilterCat, opts: categories.map(c => c.name), placeholder: 'Toutes catégories' },
               { val: filterSt, set: setFilterSt, opts: STATUTS, placeholder: 'Tous statuts' },
               { val: filterPf, set: setFilterPf, opts: plateformes, placeholder: 'Toutes plateformes' },
             ].map((f, i) => (
@@ -238,10 +268,10 @@ export default function Dashboard() {
               const p = profit(item)
               const r = rendement(item)
               const days = daysSince(item.date_achat)
-              const isOld = item.statut !== 'Vendu' && days > 90
+              const isOld = !['Vendu', ...EXCLUDED_STATUTS].includes(item.statut) && days > 90
               const badgeStyle = catBadgeStyle(item.categorie, categories)
               return (
-                <tr key={item.id} onClick={() => { setEditItem(item); setShowModal(true) }}>
+                <tr key={item.id} onClick={() => { setEditItem(item); setShowModal(true) }} style={{ cursor: 'pointer' }}>
                   <td>
                     {item.image_url
                       ? <img src={item.image_url} alt="" style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, border: '0.5px solid var(--brd2)' }} />
@@ -250,6 +280,7 @@ export default function Dashboard() {
                   </td>
                   <td>
                     <div style={{ fontWeight: 500, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.nom}</div>
+                    {item.quantite_mode && <div style={{ fontSize: 10, color: 'var(--b)', marginTop: 2 }}>📦 Lot × {item.quantite_total}</div>}
                     {isOld && <div style={{ fontSize: 10, color: 'var(--o)', marginTop: 2 }}>⚠ {days}j en stock</div>}
                     {item.notes && <div style={{ fontSize: 10, color: 'var(--mut)', marginTop: 2 }}>{item.notes}</div>}
                   </td>
@@ -257,8 +288,8 @@ export default function Dashboard() {
                   <td style={{ color: 'var(--mut)' }}>{item.taille_ref || '—'}</td>
                   <td style={{ color: 'var(--b)' }}>{fmtEur(item.prix_achat)}</td>
                   <td style={{ color: item.prix_vente ? 'var(--g)' : 'var(--mut2)' }}>{item.prix_vente ? fmtEur(item.prix_vente) : '—'}</td>
-                  <td>{p != null ? <span className={p >= 0 ? 'profit-pos' : 'profit-neg'}>{p >= 0 ? '+' : ''}{fmtEur(p)}</span> : <span style={{ color: 'var(--mut2)' }}>—</span>}</td>
-                  <td>{r != null ? <span className={r >= 0 ? 'profit-pos' : 'profit-neg'}>{fmtPct(r)}</span> : <span style={{ color: 'var(--mut2)' }}>—</span>}</td>
+                  <td>{p != null && !EXCLUDED_STATUTS.includes(item.statut) ? <span className={p >= 0 ? 'profit-pos' : 'profit-neg'}>{p >= 0 ? '+' : ''}{fmtEur(p)}</span> : <span style={{ color: 'var(--mut2)' }}>—</span>}</td>
+                  <td>{r != null && !EXCLUDED_STATUTS.includes(item.statut) ? <span className={r >= 0 ? 'profit-pos' : 'profit-neg'}>{fmtPct(r)}</span> : <span style={{ color: 'var(--mut2)' }}>—</span>}</td>
                   <td><span className={`status-badge ${statusClass(item.statut)}`}>{item.statut}</span></td>
                   <td onClick={e => e.stopPropagation()}>
                     <button className="btn-ghost" title="Dupliquer" onClick={() => duplicateItem(item)} style={{ marginRight: 4 }}>⧉</button>

@@ -99,8 +99,8 @@ export default function Stock() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 20 }}>
         {[
           { label: 'En stock', value: items.filter(i => i.statut === 'En stock').length, color: 'var(--g)' },
-          { label: 'Réservé / Livraison / Retour', value: items.filter(i => ['Réservé','En livraison','En retour'].includes(i.statut)).length, color: 'var(--o)' },
-          { label: 'Valeur totale', value: fmtEur(items.filter(i => i.statut !== 'Vendu').reduce((s,i) => s + (i.prix_achat||0), 0)), color: 'var(--b)' },
+          { label: 'Acheté / Livraison', value: items.filter(i => ['Acheté','En livraison'].includes(i.statut)).length, color: 'var(--o)' },
+          { label: 'Valeur totale', value: fmtEur(items.filter(i => !['Vendu','Remboursé','En retour'].includes(i.statut)).reduce((s,i) => s + (i.prix_achat||0), 0)), color: 'var(--b)' },
         ].map(k => (
           <div key={k.label} className="kpi-card">
             <div className="kpi-label">{k.label}</div>
@@ -178,7 +178,7 @@ export default function Stock() {
               const p = profit(item)
               const r = rendement(item)
               const days = daysSince(item.date_achat)
-              const isOld = item.statut !== 'Vendu' && days > 90
+              const isOld = !['Vendu','Remboursé','En retour'].includes(item.statut) && days > 90
               const isSelected = selected.includes(item.id)
               const badgeStyle = catBadgeStyle(item.categorie, categories)
               return (
