@@ -2,20 +2,39 @@ import { useState, useEffect, useRef } from 'react'
 import { STATUTS } from '../lib/utils'
 import { supabase } from '../lib/supabase'
 
+const DRAFT_KEY = 'resell_item_draft'
+
 export default function ItemModal({ item, categories, onSave, onClose }) {
   const isEdit = !!item?.id
-  const [form, setForm] = useState({
+
+  const defaultForm = {
     nom: '', categorie: categories[0]?.name || '', taille_ref: '',
     prix_achat: '', date_achat: '', plateforme_achat: '',
     prix_vente: '', date_vente: '', statut: 'En stock', notes: '',
     image_url: null,
-    ...item
+  }
+
+  const [form, setForm] = useState(() => {
+    if (isEdit) return { ...defaultForm, ...item }
+    // Restaurer le brouillon si pas en mode édition
+    try {
+      const draft = localStorage.getItem(DRAFT_KEY)
+      return draft ? { ...defaultForm, ...JSON.parse(draft) } : defaultForm
+    } catch { return defaultForm }
   })
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [imagePreview, setImagePreview] = useState(item?.image_url || null)
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef()
+
+  // Sauvegarder le brouillon à chaque changement (seulement en mode ajout)
+  useEffect(() => {
+    if (!isEdit) {
+      try { localStorage.setItem(DRAFT_KEY, JSON.stringify(form)) } catch {}
+    }
+  }, [form, isEdit])
 
   useEffect(() => {
     if (item) {
@@ -26,7 +45,6 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
 
   const set = (k, v) => setForm(f => {
     const updated = { ...f, [k]: v }
-    // Auto-statut Vendu si prix de vente renseigné
     if (k === 'prix_vente' && v && parseFloat(v) > 0) {
       updated.statut = 'Vendu'
     }
@@ -72,15 +90,37 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
       image_url: form.image_url || null,
     }
     const { error: err } = await onSave(data)
-    if (err) setError(err.message)
-    else onClose()
+    if (err) { setError(err.message); setLoading(false); return }
+    // Effacer le brouillon après sauvegarde réussie
+    if (!isEdit) try { localStorage.removeItem(DRAFT_KEY) } catch {}
+    onClose()
     setLoading(false)
   }
 
+  const handleClose = () => {
+    // Garder le brouillon si pas en mode édition et formulaire non vide
+    onClose()
+  }
+
+  const checkboxStyle = {
+    appearance: 'none', WebkitAppearance: 'none',
+    width: 16, height: 16, borderRadius: 4,
+    border: '1.5px solid var(--brd2)',
+    background: 'var(--bg3)', cursor: 'pointer',
+    position: 'relative', flexShrink: 0,
+  }
+
   return (
-    <div className="overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="overlay" onClick={e => e.target === e.currentTarget && handleClose()}>
       <div className="modal">
-        <div className="modal-title">{isEdit ? "Modifier l'item" : 'Ajouter un item'}</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
+          <div className="modal-title" style={{ margin: 0 }}>{isEdit ? "Modifier l'item" : 'Ajouter un item'}</div>
+          {!isEdit && (
+            <div style={{ fontSize: 11, color: 'var(--mut)' }}>
+              💾 Brouillon sauvegardé
+            </div>
+          )}
+        </div>
         <form onSubmit={handle}>
           <div className="form-grid">
             <div className="form-group full">
@@ -128,7 +168,6 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
               <input className="form-input" placeholder="Condition, défaut, infos utiles..." value={form.notes || ''} onChange={e => set('notes', e.target.value)} />
             </div>
 
-            {/* Image upload */}
             <div className="form-group full">
               <label className="form-label">Image</label>
               {imagePreview ? (
@@ -139,11 +178,7 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
               ) : (
                 <div
                   onClick={() => fileRef.current?.click()}
-                  style={{
-                    border: '1px dashed var(--brd2)', borderRadius: 8, padding: '16px',
-                    textAlign: 'center', cursor: 'pointer', color: 'var(--mut)', fontSize: 12,
-                    transition: 'border-color 0.15s'
-                  }}
+                  style={{ border: '1px dashed var(--brd2)', borderRadius: 8, padding: '16px', textAlign: 'center', cursor: 'pointer', color: 'var(--mut)', fontSize: 12, transition: 'border-color 0.15s' }}
                   onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--g)'}
                   onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--brd2)'}
                 >
@@ -161,7 +196,7 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
           )}
 
           <div className="modal-actions">
-            <button type="button" className="btn-secondary" onClick={onClose}>Annuler</button>
+            <button type="button" className="btn-secondary" onClick={handleClose}>Annuler</button>
             <button type="submit" className="btn-primary" disabled={loading || uploading}>
               {loading ? 'Enregistrement...' : isEdit ? 'Mettre à jour' : 'Ajouter'}
             </button>

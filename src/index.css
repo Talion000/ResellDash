@@ -282,3 +282,35 @@ tbody tr:hover td { background: var(--bg3); cursor: pointer; }
 }
 
 .status-retour { background: rgba(168,85,247,0.1); color: #a855f7; }
+
+/* Dark checkboxes */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1.5px solid var(--brd2);
+  background: var(--bg3);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+input[type="checkbox"]:checked {
+  background: var(--g);
+  border-color: var(--g);
+}
+input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px; top: 1px;
+  width: 5px; height: 9px;
+  border: 2px solid #fff;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg);
+}
+input[type="checkbox"]:hover {
+  border-color: var(--g);
+}
