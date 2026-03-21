@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip } from 'chart.js'
 import { useItemsContext } from '../hooks/ItemsContext'
-import { profit, rendement, fmtEur, fmtPct, fmt, groupByMonth, formatMonth, catBadgeClass } from '../lib/utils'
+import { profit, rendement, fmtEur, fmtPct, fmt, groupByMonth, formatMonth, catBadgeStyle, catColor } from '../lib/utils'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip)
 
@@ -213,7 +213,7 @@ export default function Ventes() {
               return (
                 <tr key={item.id}>
                   <td style={{ fontWeight: 500 }}>{item.nom}</td>
-                  <td><span className={`badge ${catBadgeClass(item.categorie)}`}>{item.categorie}</span></td>
+                  <td><span className="badge" style={catBadgeStyle(item.categorie)}>{item.categorie}</span></td>
                   <td>{fmtEur(item.prix_achat)}</td>
                   <td>{fmtEur(item.prix_vente)}</td>
                   <td><span className={p >= 0 ? 'profit-pos' : 'profit-neg'}>{p >= 0 ? '+' : ''}{fmtEur(p)}</span></td>
