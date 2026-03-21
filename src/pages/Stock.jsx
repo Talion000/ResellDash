@@ -194,6 +194,7 @@ export default function Stock() {
                   </td>
                   <td>
                     <div style={{ fontWeight: 500, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.nom}</div>
+                    {item.quantite_mode && <div style={{ fontSize: 10, color: 'var(--b)', marginTop: 2 }}>📦 Lot × {item.quantite_total}</div>}
                     {isOld && <div style={{ fontSize: 10, color: 'var(--o)' }}>⚠ {days}j en stock</div>}
                     {item.notes && <div style={{ fontSize: 10, color: 'var(--mut)' }}>{item.notes}</div>}
                   </td>
