@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
-
-const STATUTS = ['En stock', 'En livraison', 'Réservé', 'Vendu']
+import { useState, useEffect, useRef } from 'react'
+import { STATUTS } from '../lib/utils'
+import { supabase } from '../lib/supabase'
 
 export default function ItemModal({ item, categories, onSave, onClose }) {
   const isEdit = !!item?.id
@@ -8,16 +8,50 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
     nom: '', categorie: categories[0]?.name || '', taille_ref: '',
     prix_achat: '', date_achat: '', plateforme_achat: '',
     prix_vente: '', date_vente: '', statut: 'En stock', notes: '',
+    image_url: null,
     ...item
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [imagePreview, setImagePreview] = useState(item?.image_url || null)
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef()
 
   useEffect(() => {
-    if (item) setForm(f => ({ ...f, ...item }))
+    if (item) {
+      setForm(f => ({ ...f, ...item }))
+      setImagePreview(item.image_url || null)
+    }
   }, [item])
 
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const set = (k, v) => setForm(f => {
+    const updated = { ...f, [k]: v }
+    // Auto-statut Vendu si prix de vente renseigné
+    if (k === 'prix_vente' && v && parseFloat(v) > 0) {
+      updated.statut = 'Vendu'
+    }
+    return updated
+  })
+
+  const handleImage = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setUploading(true)
+    const ext = file.name.split('.').pop()
+    const path = `items/${Date.now()}.${ext}`
+    const { error: upErr } = await supabase.storage.from('item-images').upload(path, file)
+    if (upErr) { setError('Erreur upload image'); setUploading(false); return }
+    const { data } = supabase.storage.from('item-images').getPublicUrl(path)
+    setForm(f => ({ ...f, image_url: data.publicUrl }))
+    setImagePreview(data.publicUrl)
+    setUploading(false)
+  }
+
+  const removeImage = () => {
+    setForm(f => ({ ...f, image_url: null }))
+    setImagePreview(null)
+    if (fileRef.current) fileRef.current.value = ''
+  }
 
   const handle = async (e) => {
     e.preventDefault()
@@ -35,6 +69,7 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
       date_vente: form.date_vente || null,
       statut: form.statut,
       notes: form.notes || null,
+      image_url: form.image_url || null,
     }
     const { error: err } = await onSave(data)
     if (err) setError(err.message)
@@ -45,7 +80,7 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
   return (
     <div className="overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal">
-        <div className="modal-title">{isEdit ? 'Modifier l\'item' : 'Ajouter un item'}</div>
+        <div className="modal-title">{isEdit ? "Modifier l'item" : 'Ajouter un item'}</div>
         <form onSubmit={handle}>
           <div className="form-grid">
             <div className="form-group full">
@@ -92,6 +127,31 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
               <label className="form-label">Notes</label>
               <input className="form-input" placeholder="Condition, défaut, infos utiles..." value={form.notes || ''} onChange={e => set('notes', e.target.value)} />
             </div>
+
+            {/* Image upload */}
+            <div className="form-group full">
+              <label className="form-label">Image</label>
+              {imagePreview ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <img src={imagePreview} alt="preview" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '0.5px solid var(--brd2)' }} />
+                  <button type="button" className="btn-ghost" style={{ color: 'var(--red)' }} onClick={removeImage}>Supprimer</button>
+                </div>
+              ) : (
+                <div
+                  onClick={() => fileRef.current?.click()}
+                  style={{
+                    border: '1px dashed var(--brd2)', borderRadius: 8, padding: '16px',
+                    textAlign: 'center', cursor: 'pointer', color: 'var(--mut)', fontSize: 12,
+                    transition: 'border-color 0.15s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--g)'}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--brd2)'}
+                >
+                  {uploading ? 'Upload en cours...' : '📷 Cliquer pour ajouter une image'}
+                </div>
+              )}
+              <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImage} />
+            </div>
           </div>
 
           {error && (
@@ -102,7 +162,7 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
 
           <div className="modal-actions">
             <button type="button" className="btn-secondary" onClick={onClose}>Annuler</button>
-            <button type="submit" className="btn-primary" disabled={loading}>
+            <button type="submit" className="btn-primary" disabled={loading || uploading}>
               {loading ? 'Enregistrement...' : isEdit ? 'Mettre à jour' : 'Ajouter'}
             </button>
           </div>

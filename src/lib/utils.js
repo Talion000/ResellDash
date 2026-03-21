@@ -33,21 +33,34 @@ export function daysSince(dateStr) {
   return Math.floor((Date.now() - d.getTime()) / 86400000)
 }
 
-export function catBadgeClass(cat) {
-  const map = {
-    'Sneakers': 'badge-blue',
-    'Pokémon': 'badge-orange',
-    'Random': 'badge-green',
+// Couleurs fixes par catégorie par défaut
+export const CAT_COLORS_DEFAULT = {
+  'Sneakers': '#3b82f6',   // bleu
+  'Pokémon':  '#f59e0b',   // jaune/or
+  'Random':   '#a855f7',   // violet
+}
+
+export function catColor(cat, categories = []) {
+  const found = categories.find(c => c.name === cat)
+  if (found) return found.color
+  return CAT_COLORS_DEFAULT[cat] || '#888'
+}
+
+export function catBadgeStyle(cat, categories = []) {
+  const color = catColor(cat, categories)
+  return {
+    background: color + '22',
+    color: color,
   }
-  return map[cat] || 'badge-gray'
 }
 
 export function statusClass(statut) {
   const map = {
-    'En stock': 'status-stock',
-    'Vendu': 'status-vendu',
-    'Réservé': 'status-reserve',
+    'En stock':     'status-stock',
+    'Vendu':        'status-vendu',
+    'Réservé':      'status-reserve',
     'En livraison': 'status-livraison',
+    'En retour':    'status-retour',
   }
   return map[statut] || 'status-vendu'
 }
@@ -69,3 +82,5 @@ export function formatMonth(yyyymm) {
   const names = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc']
   return names[parseInt(m) - 1] + ' ' + y.slice(2)
 }
+
+export const STATUTS = ['En stock', 'En livraison', 'Réservé', 'En retour', 'Vendu']

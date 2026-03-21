@@ -5,6 +5,7 @@ import Dashboard from '../pages/Dashboard'
 import Stock from '../pages/Stock'
 import Ventes from '../pages/Ventes'
 import Recap from '../pages/Recap'
+import Admin from '../pages/Admin'
 
 export default function Layout() {
   return (
@@ -17,6 +18,7 @@ export default function Layout() {
             <Route path="/stock" element={<Stock />} />
             <Route path="/ventes" element={<Ventes />} />
             <Route path="/recap" element={<Recap />} />
+            <Route path="/admin" element={<Admin />} />
           </Routes>
         </div>
       </div>

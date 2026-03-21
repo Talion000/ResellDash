@@ -2,20 +2,22 @@ import { useState, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useItemsContext } from '../hooks/ItemsContext'
 import ItemModal from '../components/ItemModal'
-import { profit, rendement, fmtEur, fmtPct, daysSince, catBadgeClass, statusClass } from '../lib/utils'
+import { profit, rendement, fmtEur, fmtPct, daysSince, catBadgeStyle, statusClass, STATUTS } from '../lib/utils'
 
 export default function Stock() {
-  const { items, categories, addItem, updateItem, deleteItem, duplicateItem } = useItemsContext()
+  const { items, categories, loading, addItem, updateItem, deleteItem, duplicateItem } = useItemsContext()
   const [searchParams] = useSearchParams()
   const [showModal, setShowModal] = useState(false)
   const [editItem, setEditItem] = useState(null)
   const [search, setSearch] = useState('')
   const [filterCat, setFilterCat] = useState(searchParams.get('cat') || '')
-  const [filterSt, setFilterSt] = useState('En stock')
+  const [filterSt, setFilterSt] = useState('')
   const [filterPf, setFilterPf] = useState('')
   const [filterTaille, setFilterTaille] = useState('')
   const [sortBy, setSortBy] = useState('date_achat')
   const [sortDir, setSortDir] = useState('desc')
+  const [selected, setSelected] = useState([])
+  const [bulkStatut, setBulkStatut] = useState('')
 
   const plateformes = useMemo(() => [...new Set(items.map(i => i.plateforme_achat).filter(Boolean))], [items])
   const tailles = useMemo(() => [...new Set(items.map(i => i.taille_ref).filter(Boolean))].sort(), [items])
@@ -39,16 +41,10 @@ export default function Stock() {
     return list
   }, [items, search, filterCat, filterSt, filterPf, filterTaille, sortBy, sortDir])
 
-  const toggleSort = (col) => {
+  const handleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     else { setSortBy(col); setSortDir('desc') }
   }
-
-  const SortTh = ({ col, label }) => (
-    <th onClick={() => toggleSort(col)} style={{ cursor: 'pointer', userSelect: 'none' }}>
-      {label} {sortBy === col ? (sortDir === 'asc' ? '↑' : '↓') : ''}
-    </th>
-  )
 
   const handleSave = async (data) => {
     if (editItem?.id) return updateItem(editItem.id, data)
@@ -58,24 +54,39 @@ export default function Stock() {
   const handleDelete = async (item) => {
     if (!window.confirm(`Supprimer "${item.nom}" ?`)) return
     await deleteItem(item.id)
+    setSelected(s => s.filter(id => id !== item.id))
   }
 
-  const stockCount = items.filter(i => i.statut === 'En stock').length
-  const totalValeur = items.filter(i => i.statut !== 'Vendu').reduce((s, i) => s + (i.prix_achat || 0), 0)
-  const alertCount = items.filter(i => i.statut !== 'Vendu' && daysSince(i.date_achat) > 90).length
+  const toggleSelect = (id) => setSelected(s => s.includes(id) ? s.filter(i => i !== id) : [...s, id])
+  const toggleAll = () => setSelected(selected.length === filtered.length ? [] : filtered.map(i => i.id))
+
+  const applyBulkStatut = async () => {
+    if (!bulkStatut || selected.length === 0) return
+    await Promise.all(selected.map(id => updateItem(id, { statut: bulkStatut })))
+    setSelected([])
+    setBulkStatut('')
+  }
+
+  const bulkDelete = async () => {
+    if (!window.confirm(`Supprimer ${selected.length} item(s) ?`)) return
+    await Promise.all(selected.map(id => deleteItem(id)))
+    setSelected([])
+  }
+
+  const SortTh = ({ col, children }) => (
+    <th onClick={() => handleSort(col)} style={{ cursor: 'pointer', userSelect: 'none' }}>
+      {children} {sortBy === col ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+    </th>
+  )
+
+  if (loading) return <div style={{ padding: 40, color: 'var(--mut)' }}>Chargement...</div>
 
   return (
     <div style={{ padding: '20px 28px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <div>
-          <div style={{ fontSize: 18, fontWeight: 500, letterSpacing: '-0.3px' }}>Stock</div>
-          <div style={{ fontSize: 12, color: 'var(--mut)', marginTop: 3 }}>
-            {stockCount} items · Valeur : {fmtEur(totalValeur)}
-            {alertCount > 0 && <span style={{ color: 'var(--o)', marginLeft: 8 }}>· ⚠ {alertCount} item{alertCount > 1 ? 's' : ''} +90j</span>}
-          </div>
-        </div>
+        <div style={{ fontSize: 18, fontWeight: 500, letterSpacing: '-0.3px' }}>Stock</div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'var(--bg2)', border: '0.5px solid var(--brd2)', borderRadius: 8, padding: '7px 12px', width: 200 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'var(--bg2)', border: '0.5px solid var(--brd2)', borderRadius: 8, padding: '7px 12px', width: 220 }}>
             <SearchIcon />
             <input style={{ background: 'none', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 12, width: '100%' }}
               placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)} />
@@ -84,47 +95,80 @@ export default function Stock() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+      {/* Stats rapides */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 20 }}>
         {[
-          { val: filterCat, set: setFilterCat, opts: categories.map(c => c.name), placeholder: 'Toutes catégories' },
-          { val: filterSt, set: setFilterSt, opts: ['En stock', 'Vendu', 'Réservé', 'En livraison'], placeholder: 'Tous statuts' },
-          { val: filterPf, set: setFilterPf, opts: plateformes, placeholder: 'Toutes plateformes' },
-          { val: filterTaille, set: setFilterTaille, opts: tailles, placeholder: 'Toutes tailles' },
-        ].map((f, i) => (
-          <select key={i} className="form-input" style={{ padding: '5px 10px', fontSize: 11, borderRadius: 20, width: 'auto' }}
-            value={f.val} onChange={e => f.set(e.target.value)}>
-            <option value="">{f.placeholder}</option>
-            {f.opts.map(o => <option key={o} value={o}>{o}</option>)}
-          </select>
+          { label: 'En stock', value: items.filter(i => i.statut === 'En stock').length, color: 'var(--g)' },
+          { label: 'Réservé / Livraison / Retour', value: items.filter(i => ['Réservé','En livraison','En retour'].includes(i.statut)).length, color: 'var(--o)' },
+          { label: 'Valeur totale', value: fmtEur(items.filter(i => i.statut !== 'Vendu').reduce((s,i) => s + (i.prix_achat||0), 0)), color: 'var(--b)' },
+        ].map(k => (
+          <div key={k.label} className="kpi-card">
+            <div className="kpi-label">{k.label}</div>
+            <div className="kpi-value" style={{ color: k.color, fontSize: 20 }}>{k.value}</div>
+          </div>
         ))}
-        {(filterCat || filterSt !== 'En stock' || filterPf || filterTaille || search) && (
-          <button className="btn-ghost" onClick={() => { setFilterCat(''); setFilterSt('En stock'); setFilterPf(''); setFilterTaille(''); setSearch('') }}>
-            Réinitialiser
-          </button>
-        )}
       </div>
 
+      {/* Bulk actions */}
+      {selected.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, padding: '10px 16px', background: 'var(--bg2)', border: '0.5px solid var(--brd2)', borderRadius: 10 }}>
+          <span style={{ fontSize: 12, color: 'var(--mut)' }}>{selected.length} item(s) sélectionné(s)</span>
+          <select className="form-input" style={{ width: 'auto', padding: '5px 10px', fontSize: 12 }}
+            value={bulkStatut} onChange={e => setBulkStatut(e.target.value)}>
+            <option value="">Changer le statut...</option>
+            {STATUTS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <button className="btn-primary" style={{ padding: '6px 14px', fontSize: 12 }} onClick={applyBulkStatut} disabled={!bulkStatut}>Appliquer</button>
+          <button className="btn-ghost" style={{ color: 'var(--red)', marginLeft: 'auto' }} onClick={bulkDelete}>Supprimer la sélection</button>
+          <button className="btn-ghost" onClick={() => setSelected([])}>Annuler</button>
+        </div>
+      )}
+
       <div className="table-container">
+        <div className="table-header">
+          <div style={{ fontSize: 14, fontWeight: 500 }}>Tous les items</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {[
+              { val: filterCat, set: setFilterCat, opts: categories.map(c => c.name), placeholder: 'Catégorie' },
+              { val: filterSt, set: setFilterSt, opts: STATUTS, placeholder: 'Statut' },
+              { val: filterPf, set: setFilterPf, opts: plateformes, placeholder: 'Plateforme' },
+              { val: filterTaille, set: setFilterTaille, opts: tailles, placeholder: 'Taille/Réf' },
+            ].map((f, i) => (
+              <select key={i} className="form-input" style={{ padding: '5px 10px', fontSize: 11, borderRadius: 20, width: 'auto' }}
+                value={f.val} onChange={e => f.set(e.target.value)}>
+                <option value="">{f.placeholder}</option>
+                {f.opts.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            ))}
+            {(filterCat || filterSt || filterPf || filterTaille) && (
+              <button className="btn-ghost" onClick={() => { setFilterCat(''); setFilterSt(''); setFilterPf(''); setFilterTaille('') }}>Réinitialiser</button>
+            )}
+          </div>
+        </div>
+
         <table>
           <thead>
             <tr>
-              <SortTh col="nom" label="Item" />
-              <th>Catégorie</th>
+              <th style={{ width: 36 }}>
+                <input type="checkbox" checked={selected.length === filtered.length && filtered.length > 0}
+                  onChange={toggleAll} style={{ cursor: 'pointer' }} />
+              </th>
+              <th style={{ width: 60 }}>Photo</th>
+              <SortTh col="nom">Item</SortTh>
+              <SortTh col="categorie">Catégorie</SortTh>
               <th>Taille/Réf</th>
-              <SortTh col="prix_achat" label="Achat" />
-              <SortTh col="prix_vente" label="Vente" />
-              <SortTh col="prix_achat" label="Profit" />
+              <SortTh col="prix_achat">Achat</SortTh>
+              <SortTh col="prix_vente">Vente</SortTh>
+              <th>Profit</th>
               <th>ROI</th>
-              <SortTh col="date_achat" label="Date achat" />
-              <th>Plateforme</th>
-              <th>Statut</th>
+              <SortTh col="date_achat">Date achat</SortTh>
+              <SortTh col="statut">Statut</SortTh>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={11}>
+              <tr><td colSpan={12}>
                 <div className="empty-state">
                   <div style={{ fontSize: 20 }}>📦</div>
                   <p>{items.length === 0 ? 'Aucun item. Clique sur "+ Ajouter" !' : 'Aucun résultat.'}</p>
@@ -135,25 +179,37 @@ export default function Stock() {
               const r = rendement(item)
               const days = daysSince(item.date_achat)
               const isOld = item.statut !== 'Vendu' && days > 90
+              const isSelected = selected.includes(item.id)
+              const badgeStyle = catBadgeStyle(item.categorie, categories)
               return (
-                <tr key={item.id} onClick={() => { setEditItem(item); setShowModal(true) }}>
-                  <td>
-                    <div style={{ fontWeight: 500 }}>{item.nom}</div>
+                <tr key={item.id} style={{ background: isSelected ? 'rgba(34,197,94,0.04)' : undefined }}>
+                  <td onClick={e => e.stopPropagation()}>
+                    <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(item.id)} style={{ cursor: 'pointer' }} />
+                  </td>
+                  <td onClick={() => { setEditItem(item); setShowModal(true) }}>
+                    {item.image_url
+                      ? <img src={item.image_url} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, border: '0.5px solid var(--brd2)' }} />
+                      : <div style={{ width: 40, height: 40, borderRadius: 6, background: 'var(--bg3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>📦</div>
+                    }
+                  </td>
+                  <td onClick={() => { setEditItem(item); setShowModal(true) }}>
+                    <div style={{ fontWeight: 500, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.nom}</div>
                     {isOld && <div style={{ fontSize: 10, color: 'var(--o)' }}>⚠ {days}j en stock</div>}
                     {item.notes && <div style={{ fontSize: 10, color: 'var(--mut)' }}>{item.notes}</div>}
                   </td>
-                  <td><span className={`badge ${catBadgeClass(item.categorie)}`}>{item.categorie}</span></td>
+                  <td onClick={() => { setEditItem(item); setShowModal(true) }}>
+                    <span className="badge" style={badgeStyle}>{item.categorie}</span>
+                  </td>
                   <td style={{ color: 'var(--mut)' }}>{item.taille_ref || '—'}</td>
-                  <td>{fmtEur(item.prix_achat)}</td>
-                  <td>{item.prix_vente ? fmtEur(item.prix_vente) : <span style={{ color: 'var(--mut2)' }}>—</span>}</td>
+                  <td style={{ color: 'var(--b)' }}>{fmtEur(item.prix_achat)}</td>
+                  <td style={{ color: item.prix_vente ? 'var(--g)' : 'var(--mut2)' }}>{item.prix_vente ? fmtEur(item.prix_vente) : '—'}</td>
                   <td>{p != null ? <span className={p >= 0 ? 'profit-pos' : 'profit-neg'}>{p >= 0 ? '+' : ''}{fmtEur(p)}</span> : <span style={{ color: 'var(--mut2)' }}>—</span>}</td>
                   <td>{r != null ? <span className={r >= 0 ? 'profit-pos' : 'profit-neg'}>{fmtPct(r)}</span> : <span style={{ color: 'var(--mut2)' }}>—</span>}</td>
                   <td style={{ color: 'var(--mut)' }}>{item.date_achat ? new Date(item.date_achat).toLocaleDateString('fr-FR') : '—'}</td>
-                  <td style={{ color: 'var(--mut)' }}>{item.plateforme_achat || '—'}</td>
                   <td><span className={`status-badge ${statusClass(item.statut)}`}>{item.statut}</span></td>
                   <td onClick={e => e.stopPropagation()}>
                     <button className="btn-ghost" title="Dupliquer" onClick={() => duplicateItem(item)} style={{ marginRight: 4 }}>⧉</button>
-                    <button className="btn-ghost" onClick={() => handleDelete(item)} style={{ color: 'var(--red)' }}>✕</button>
+                    <button className="btn-ghost" title="Supprimer" onClick={() => handleDelete(item)} style={{ color: 'var(--red)' }}>✕</button>
                   </td>
                 </tr>
               )

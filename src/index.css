@@ -280,3 +280,5 @@ tbody tr:hover td { background: var(--bg3); cursor: pointer; }
   .form-grid { grid-template-columns: 1fr; }
   .form-grid .full { grid-column: 1; }
 }
+
+.status-retour { background: rgba(168,85,247,0.1); color: #a855f7; }
