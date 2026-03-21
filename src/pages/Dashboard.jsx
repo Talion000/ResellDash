@@ -15,6 +15,7 @@ export default function Dashboard() {
   const [filterCat, setFilterCat] = useState('')
   const [filterSt, setFilterSt] = useState('')
   const [filterPf, setFilterPf] = useState('')
+  const [sortOrder, setSortOrder] = useState('recent')
 
   const soldItems = useMemo(() => items.filter(i => i.statut === 'Vendu' && i.prix_vente), [items])
   const stockItems = useMemo(() => items.filter(i => i.statut !== 'Vendu'), [items])
@@ -70,7 +71,11 @@ export default function Dashboard() {
     if (filterSt && i.statut !== filterSt) return false
     if (filterPf && i.plateforme_achat !== filterPf) return false
     return true
-  }), [items, search, filterCat, filterSt, filterPf])
+  }).sort((a, b) => {
+    const da = a.date_achat || ''
+    const db = b.date_achat || ''
+    return sortOrder === 'recent' ? db.localeCompare(da) : da.localeCompare(db)
+  }), [items, search, filterCat, filterSt, filterPf, sortOrder])
 
   const handleSave = async (data) => {
     if (editItem?.id) return updateItem(editItem.id, data)
@@ -191,7 +196,12 @@ export default function Dashboard() {
       <div className="table-container">
         <div className="table-header">
           <div style={{ fontSize: 14, fontWeight: 500 }}>Stock & Historique</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <select className="form-input" style={{ padding: '5px 10px', fontSize: 11, borderRadius: 20, width: 'auto' }}
+              value={sortOrder} onChange={e => setSortOrder(e.target.value)}>
+              <option value="recent">Plus récent</option>
+              <option value="ancien">Plus ancien</option>
+            </select>
             {[
               { val: filterCat, set: setFilterCat, opts: categories.map(c => c.name), placeholder: 'Toutes catégories' },
               { val: filterSt, set: setFilterSt, opts: STATUTS, placeholder: 'Tous statuts' },
