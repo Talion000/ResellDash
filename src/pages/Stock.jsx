@@ -2,10 +2,10 @@ import { useState, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useItemsContext } from '../hooks/ItemsContext'
 import ItemModal from '../components/ItemModal'
-import { profit, rendement, fmtEur, fmtPct, daysSince, catBadgeStyle, statusClass, STATUTS } from '../lib/utils'
+import { profit, rendement, fmtEur, fmtPct, daysSince, catBadgeStyle, statusClass, STATUTS, lotAchatTotal, lotVenteTotal, lotProfit, lotValeurStock } from '../lib/utils'
 
 export default function Stock() {
-  const { items, categories, loading, addItem, updateItem, deleteItem, duplicateItem } = useItemsContext()
+  const { items, categories, ventesUnitaires, loading, addItem, updateItem, deleteItem, duplicateItem } = useItemsContext()
   const [searchParams] = useSearchParams()
   const [showModal, setShowModal] = useState(false)
   const [editItem, setEditItem] = useState(null)
@@ -100,7 +100,7 @@ export default function Stock() {
         {[
           { label: 'En stock', value: items.filter(i => i.statut === 'En stock').length, color: 'var(--g)' },
           { label: 'Acheté / Livraison', value: items.filter(i => ['Acheté','En livraison'].includes(i.statut)).length, color: 'var(--o)' },
-          { label: 'Valeur totale', value: fmtEur(items.filter(i => !['Vendu','Remboursé','En retour'].includes(i.statut)).reduce((s,i) => s + (i.prix_achat||0), 0)), color: 'var(--b)' },
+          { label: 'Valeur totale', value: fmtEur(items.filter(i => !['Vendu','Remboursé','En retour'].includes(i.statut)).reduce((s,i) => s + lotValeurStock(i, ventesUnitaires), 0)), color: 'var(--b)' },
         ].map(k => (
           <div key={k.label} className="kpi-card">
             <div className="kpi-label">{k.label}</div>

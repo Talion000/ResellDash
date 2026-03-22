@@ -79,9 +79,44 @@ export function groupByMonth(items, dateKey = 'date_vente') {
 }
 
 export function formatMonth(yyyymm) {
+  if (!yyyymm || !yyyymm.includes('-')) return '?'
   const [y, m] = yyyymm.split('-')
   const names = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc']
-  return names[parseInt(m) - 1] + ' ' + y.slice(2)
+  const idx = parseInt(m) - 1
+  if (idx < 0 || idx > 11 || !y) return '?'
+  return names[idx] + ' ' + y.slice(2)
 }
 
 export const STATUTS = ['Acheté', 'En livraison', 'En stock', 'Vendu', 'En retour', 'Remboursé']
+
+// Calculs pour les lots (quantite_mode)
+export function lotAchatTotal(item) {
+  if (!item.quantite_mode) return item.prix_achat
+  return (item.prix_achat || 0) * (item.quantite_total || 1)
+}
+
+export function lotVenteTotal(item, ventesUnitaires) {
+  if (!item.quantite_mode) return item.prix_vente
+  const ventes = ventesUnitaires.filter(v => v.item_id === item.id)
+  if (ventes.length === 0) return null
+  return ventes.reduce((s, v) => s + (v.prix_vente || 0), 0)
+}
+
+export function lotProfit(item, ventesUnitaires) {
+  const achat = lotAchatTotal(item)
+  const vente = lotVenteTotal(item, ventesUnitaires)
+  if (vente == null) return null
+  return vente - achat
+}
+
+export function lotNbVendus(item, ventesUnitaires) {
+  if (!item.quantite_mode) return item.statut === 'Vendu' ? 1 : 0
+  return ventesUnitaires.filter(v => v.item_id === item.id).length
+}
+
+export function lotValeurStock(item, ventesUnitaires) {
+  if (!item.quantite_mode) return item.statut !== 'Vendu' ? item.prix_achat : 0
+  const vendus = lotNbVendus(item, ventesUnitaires)
+  const restants = Math.max(0, (item.quantite_total || 1) - vendus)
+  return (item.prix_achat || 0) * restants
+}

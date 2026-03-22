@@ -4,7 +4,7 @@ import { Bar, Doughnut } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend } from 'chart.js'
 import { useItemsContext } from '../hooks/ItemsContext'
 import ItemModal from '../components/ItemModal'
-import { profit, rendement, fmtEur, fmtPct, daysSince, catBadgeStyle, catColor, statusClass, groupByMonth, formatMonth, STATUTS } from '../lib/utils'
+import { profit, rendement, fmtEur, fmtPct, daysSince, catBadgeStyle, catColor, statusClass, groupByMonth, formatMonth, STATUTS, lotAchatTotal, lotVenteTotal, lotProfit, lotValeurStock } from '../lib/utils'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend)
 
@@ -12,7 +12,7 @@ const EXCLUDED_STATUTS = ['Remboursé', 'En retour']
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { items, categories, loading, addItem, updateItem, deleteItem, duplicateItem } = useItemsContext()
+  const { items, categories, ventesUnitaires, loading, addItem, updateItem, deleteItem, duplicateItem } = useItemsContext()
   const [showModal, setShowModal] = useState(false)
   const [editItem, setEditItem] = useState(null)
   const [search, setSearch] = useState('')
@@ -34,7 +34,7 @@ export default function Dashboard() {
 
   const totalCA = useMemo(() => soldItems.reduce((s, i) => s + (i.prix_vente || 0), 0), [soldItems])
   const totalBenef = useMemo(() => soldItems.reduce((s, i) => s + (profit(i) || 0), 0), [soldItems])
-  const totalStock = useMemo(() => stockItems.reduce((s, i) => s + (i.prix_achat || 0), 0), [stockItems])
+  const totalStock = useMemo(() => stockItems.reduce((s, i) => s + lotValeurStock(i, ventesUnitaires), 0), [stockItems, ventesUnitaires])
   const avgROI = useMemo(() => {
     const rends = soldItems.map(i => rendement(i)).filter(r => r != null)
     return rends.length ? rends.reduce((s, r) => s + r, 0) / rends.length : 0
@@ -286,10 +286,12 @@ export default function Dashboard() {
                   </td>
                   <td><span className="badge" style={badgeStyle}>{item.categorie}</span></td>
                   <td style={{ color: 'var(--mut)' }}>{item.taille_ref || '—'}</td>
-                  <td style={{ color: 'var(--b)' }}>{fmtEur(item.prix_achat)}</td>
-                  <td style={{ color: item.prix_vente ? 'var(--g)' : 'var(--mut2)' }}>{item.prix_vente ? fmtEur(item.prix_vente) : '—'}</td>
-                  <td>{p != null && !EXCLUDED_STATUTS.includes(item.statut) ? <span className={p >= 0 ? 'profit-pos' : 'profit-neg'}>{p >= 0 ? '+' : ''}{fmtEur(p)}</span> : <span style={{ color: 'var(--mut2)' }}>—</span>}</td>
-                  <td>{r != null && !EXCLUDED_STATUTS.includes(item.statut) ? <span className={r >= 0 ? 'profit-pos' : 'profit-neg'}>{fmtPct(r)}</span> : <span style={{ color: 'var(--mut2)' }}>—</span>}</td>
+                  <td style={{ color: 'var(--b)' }}>{fmtEur(lotAchatTotal(item))}</td>
+                  <td style={{ color: item.quantite_mode ? (lotVenteTotal(item, ventesUnitaires) != null ? 'var(--g)' : 'var(--mut2)') : (item.prix_vente ? 'var(--g)' : 'var(--mut2)') }}>
+                    {item.quantite_mode ? (lotVenteTotal(item, ventesUnitaires) != null ? fmtEur(lotVenteTotal(item, ventesUnitaires)) : '—') : (item.prix_vente ? fmtEur(item.prix_vente) : '—')}
+                  </td>
+                  <td>{(() => { const lp = item.quantite_mode ? lotProfit(item, ventesUnitaires) : p; return lp != null && !EXCLUDED_STATUTS.includes(item.statut) ? <span className={lp >= 0 ? 'profit-pos' : 'profit-neg'}>{lp >= 0 ? '+' : ''}{fmtEur(lp)}</span> : <span style={{ color: 'var(--mut2)' }}>—</span> })()}</td>
+                  <td>{r != null && !item.quantite_mode && !EXCLUDED_STATUTS.includes(item.statut) ? <span className={r >= 0 ? 'profit-pos' : 'profit-neg'}>{fmtPct(r)}</span> : <span style={{ color: 'var(--mut2)' }}>—</span>}</td>
                   <td><span className={`status-badge ${statusClass(item.statut)}`}>{item.statut}</span></td>
                   <td onClick={e => e.stopPropagation()}>
                     <button className="btn-ghost" title="Dupliquer" onClick={() => duplicateItem(item)} style={{ marginRight: 4 }}>⧉</button>
