@@ -59,29 +59,32 @@ export default function Dashboard() {
   const plateformes = useMemo(() => [...new Set(items.map(i => i.plateforme_achat).filter(Boolean))], [items])
 
   const monthlyData = useMemo(() => {
-    const grouped = groupByMonth(soldItems, 'date_vente')
+    const grouped = groupByMonth(kpiItems.filter(i => i.statut === 'Vendu' && !i.quantite_mode && i.prix_vente), 'date_vente')
     const achatGrouped = groupByMonth(kpiItems.filter(i => i.date_achat), 'date_achat')
-    const allKeys = [...new Set([...Object.keys(grouped), ...Object.keys(achatGrouped)])].sort().slice(-7)
+    const allKeys = [...new Set([...Object.keys(grouped), ...Object.keys(achatGrouped)])]
+      .filter(k => k && k.match(/^\d{4}-\d{2}$/))
+      .sort().slice(-7)
     return {
       labels: allKeys.map(formatMonth),
       ca: allKeys.map(k => grouped[k]?.reduce((s, i) => s + (i.prix_vente || 0), 0) || 0),
-      achats: allKeys.map(k => achatGrouped[k]?.reduce((s, i) => s + (i.prix_achat || 0), 0) || 0),
+      achats: allKeys.map(k => achatGrouped[k]?.reduce((s, i) => s + (i.quantite_mode ? lotAchatTotal(i) : (i.prix_achat || 0)), 0) || 0),
     }
-  }, [soldItems, kpiItems])
+  }, [kpiItems, ventesUnitaires])
 
   const catData = useMemo(() => {
     const map = {}
-    soldItems.forEach(i => {
+    kpiItems.filter(i => !EXCLUDED_STATUTS.includes(i.statut)).forEach(i => {
       if (!map[i.categorie]) map[i.categorie] = 0
-      map[i.categorie] += profit(i) || 0
+      const p = i.quantite_mode ? (lotProfit(i, ventesUnitaires) || 0) : (profit(i) || 0)
+      map[i.categorie] += p
     })
-    const cats = Object.entries(map).filter(([, v]) => v > 0)
+    const cats = Object.entries(map).filter(([, v]) => v !== 0)
     return {
       labels: cats.map(([k]) => k),
       data: cats.map(([, v]) => Math.round(v)),
       colors: cats.map(([k]) => catColor(k, categories)),
     }
-  }, [soldItems, categories])
+  }, [kpiItems, ventesUnitaires, categories])
 
   const filtered = useMemo(() => items.filter(i => {
     if (search && !i.nom.toLowerCase().includes(search.toLowerCase()) && !(i.taille_ref || '').toLowerCase().includes(search.toLowerCase())) return false
