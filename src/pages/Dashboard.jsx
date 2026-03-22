@@ -32,22 +32,29 @@ export default function Dashboard() {
   const stockItems = useMemo(() => kpiItems.filter(i => !['Vendu', ...EXCLUDED_STATUTS].includes(i.statut)), [kpiItems])
   const alertItems = useMemo(() => stockItems.filter(i => daysSince(i.date_achat) > 90), [stockItems])
 
-  const totalCA = useMemo(() => soldItems.reduce((s, i) => s + (i.prix_vente || 0), 0), [soldItems])
-  const totalBenef = useMemo(() => soldItems.reduce((s, i) => s + (profit(i) || 0), 0), [soldItems])
+  const totalCA = useMemo(() => kpiItems.filter(i => !EXCLUDED_STATUTS.includes(i.statut)).reduce((s, i) => {
+    const v = i.quantite_mode ? (lotVenteTotal(i, ventesUnitaires) || 0) : (i.prix_vente || 0)
+    return s + v
+  }, 0), [kpiItems, ventesUnitaires])
+  const totalBenef = useMemo(() => kpiItems.filter(i => !EXCLUDED_STATUTS.includes(i.statut)).reduce((s, i) => {
+    const p = i.quantite_mode ? (lotProfit(i, ventesUnitaires) || 0) : (profit(i) || 0)
+    return s + p
+  }, 0), [kpiItems, ventesUnitaires])
   const totalStock = useMemo(() => stockItems.reduce((s, i) => s + lotValeurStock(i, ventesUnitaires), 0), [stockItems, ventesUnitaires])
   const avgROI = useMemo(() => {
-    const rends = soldItems.map(i => rendement(i)).filter(r => r != null)
+    const rends = kpiItems.filter(i => !EXCLUDED_STATUTS.includes(i.statut) && !i.quantite_mode).map(i => rendement(i)).filter(r => r != null)
     return rends.length ? rends.reduce((s, r) => s + r, 0) / rends.length : 0
-  }, [soldItems])
+  }, [kpiItems, ventesUnitaires])
 
   const bestCat = useMemo(() => {
     const map = {}
-    soldItems.forEach(i => {
+    kpiItems.filter(i => !EXCLUDED_STATUTS.includes(i.statut)).forEach(i => {
       if (!map[i.categorie]) map[i.categorie] = 0
-      map[i.categorie] += profit(i) || 0
+      const p = i.quantite_mode ? (lotProfit(i, ventesUnitaires) || 0) : (profit(i) || 0)
+      map[i.categorie] += p
     })
     return Object.entries(map).sort((a, b) => b[1] - a[1])[0]?.[0] || '—'
-  }, [soldItems])
+  }, [kpiItems, ventesUnitaires])
 
   const plateformes = useMemo(() => [...new Set(items.map(i => i.plateforme_achat).filter(Boolean))], [items])
 
@@ -156,7 +163,7 @@ export default function Dashboard() {
         <div className="kpi-card">
           <div className="kpi-label">CA total</div>
           <div className="kpi-value" style={{ color: 'var(--g)' }}>{fmtEur(totalCA)}</div>
-          <div className="kpi-sub">{soldItems.length} ventes</div>
+          <div className="kpi-sub">{kpiItems.filter(i => i.statut === 'Vendu').length} ventes</div>
         </div>
         <div className="kpi-card">
           <div className="kpi-label">Bénéfice net</div>
