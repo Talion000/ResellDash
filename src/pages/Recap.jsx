@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef } from 'react'
 import { useItemsContext } from '../hooks/ItemsContext'
-import { profit, fmtEur, fmtPct } from '../lib/utils'
+import { profit, fmtEur, fmtPct, lotNbVendus } from '../lib/utils'
 
 const MONTHS_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
 

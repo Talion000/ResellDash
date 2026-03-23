@@ -108,7 +108,7 @@ export default function Ventes() {
         <div className="kpi-card">
           <div className="kpi-label">CA total</div>
           <div className="kpi-value" style={{ color: 'var(--g)' }}>{fmtEur(totalCA)}</div>
-          <div className="kpi-sub">{sold.length} ventes</div>
+          <div className="kpi-sub">{sold.reduce((s, i) => s + (i.quantite_mode ? (ventesUnitaires.filter(v => v.item_id === i.id).length) : 1), 0)} ventes</div>
         </div>
         <div className="kpi-card">
           <div className="kpi-label">Bénéfice net</div>

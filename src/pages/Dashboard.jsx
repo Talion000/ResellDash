@@ -18,6 +18,7 @@ export default function Dashboard() {
   const { items, categories, ventesUnitaires, abonnements, loading, addItem, updateItem, deleteItem, duplicateItem } = useItemsContext()
   const [showModal, setShowModal] = useState(false)
   const [showScan, setShowScan] = useState(false)
+  const [blurNumbers, setBlurNumbers] = useState(false)
   const [editItem, setEditItem] = useState(null)
   const [search, setSearch] = useState('')
   const [filterCat, setFilterCat] = useState('')
@@ -131,7 +132,12 @@ export default function Dashboard() {
     <div style={{ padding: '20px 28px' }}>
       {/* Topbar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <div style={{ fontSize: 18, fontWeight: 500, letterSpacing: '-0.3px' }}>Dashboard</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ fontSize: 18, fontWeight: 500, letterSpacing: '-0.3px' }}>Dashboard</div>
+          <button onClick={() => setBlurNumbers(b => !b)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, opacity: blurNumbers ? 1 : 0.4, transition: 'opacity 0.15s' }} title={blurNumbers ? 'Afficher les chiffres' : 'Masquer les chiffres'}>
+            {blurNumbers ? '🙈' : '👁'}
+          </button>
+        </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'var(--bg2)', border: '0.5px solid var(--brd2)', borderRadius: 8, padding: '7px 12px', width: 220 }}>
             <SearchIcon />
@@ -212,16 +218,19 @@ export default function Dashboard() {
       <div className="kpi-grid" style={{ marginBottom: 20 }}>
         <div className="kpi-card">
           <div className="kpi-label">CA total</div>
-          <div className="kpi-value" style={{ color: 'var(--g)' }}>{fmtEur(totalCA)}</div>
-          <div className="kpi-sub">{kpiItems.filter(i => i.statut === 'Vendu').length} ventes</div>
+          <div className="kpi-value" style={{ color: 'var(--g)', filter: blurNumbers ? 'blur(8px)' : 'none', transition: 'filter 0.2s', userSelect: blurNumbers ? 'none' : 'auto' }}>{fmtEur(totalCA)}</div>
+          <div className="kpi-sub">{kpiItems.reduce((s, i) => {
+            if (i.quantite_mode) return s + ventesUnitaires.filter(v => v.item_id === i.id).length
+            return i.statut === 'Vendu' ? s + 1 : s
+          }, 0)} ventes</div>
         </div>
         <div className="kpi-card">
           <div className="kpi-label">Bénéfice net</div>
-          <div className="kpi-value" style={{ color: totalBenef >= 0 ? 'var(--g)' : 'var(--red)' }}>
+          <div className="kpi-value" style={{ color: totalBenef >= 0 ? 'var(--g)' : 'var(--red)', filter: blurNumbers ? 'blur(8px)' : 'none', transition: 'filter 0.2s', userSelect: blurNumbers ? 'none' : 'auto' }}>
             {totalBenef >= 0 ? '+' : ''}{fmtEur(totalBenef)}
           </div>
           {abonnements.length > 0 && (
-            <div className="kpi-sub" style={{ color: totalBenefNet >= 0 ? 'var(--g)' : 'var(--red)' }}>
+            <div className="kpi-sub" style={{ color: totalBenefNet >= 0 ? 'var(--g)' : 'var(--red)', filter: blurNumbers ? 'blur(8px)' : 'none', transition: 'filter 0.2s', userSelect: blurNumbers ? 'none' : 'auto' }}>
               Après charges : {totalBenefNet >= 0 ? '+' : ''}{fmtEur(totalBenefNet)}/mois
             </div>
           )}
@@ -238,23 +247,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Charges mensuelles */}
-      {abonnements.length > 0 && (
-        <div style={{ background: 'var(--bg2)', border: '0.5px solid var(--brd2)', borderRadius: 12, padding: '16px 20px', marginBottom: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>Charges mensuelles</div>
-            <div style={{ fontSize: 13, color: 'var(--red)', fontWeight: 500 }}>-{fmtEur(totalCharges)}/mois</div>
-          </div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            {abonnements.filter(a => a.actif).map(a => (
-              <div key={a.id} style={{ background: 'var(--bg3)', borderRadius: 8, padding: '6px 12px', fontSize: 12 }}>
-                <span style={{ color: 'var(--mut)' }}>{a.nom}</span>
-                <span style={{ color: 'var(--red)', marginLeft: 6, fontWeight: 500 }}>-{fmtEur(a.montant)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+
 
       {/* Charts */}
       {monthlyData.labels.length > 0 && (

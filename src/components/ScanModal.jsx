@@ -50,7 +50,7 @@ export default function ScanModal({ onClose }) {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur')
-      setResult({ ...data, quantite: data.quantite || 1 })
+      setResult({ ...data, nom: data.nom ? data.nom.toUpperCase() : data.nom, quantite: data.quantite || 1 })
       setStep('confirm')
     } catch (e) {
       setError(e.message || "Impossible d'analyser l'image.")
@@ -80,7 +80,7 @@ export default function ScanModal({ onClose }) {
     setSaving(false)
   }
 
-  const set = (k, v) => setResult(r => ({ ...r, [k]: v }))
+  const set = (k, v) => setResult(r => ({ ...r, [k]: k === 'nom' ? v.toUpperCase() : v }))
 
   return (
     <div className="overlay" onClick={e => e.target === e.currentTarget && onClose()}>

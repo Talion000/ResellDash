@@ -49,6 +49,7 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
   }, [form, isEdit])
 
   const set = (k, v) => setForm(f => {
+    if (k === 'nom') v = v.toUpperCase()
     const updated = { ...f, [k]: v }
     if (k === 'prix_vente' && v && parseFloat(v) > 0 && !updated.quantite_mode &&
         !['En retour', 'Remboursé'].includes(updated.statut)) {
