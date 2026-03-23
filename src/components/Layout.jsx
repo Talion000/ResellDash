@@ -6,6 +6,7 @@ import Stock from '../pages/Stock'
 import Ventes from '../pages/Ventes'
 import Recap from '../pages/Recap'
 import Admin from '../pages/Admin'
+import Settings from '../pages/Settings'
 
 export default function Layout() {
   return (
@@ -19,6 +20,7 @@ export default function Layout() {
             <Route path="/ventes" element={<Ventes />} />
             <Route path="/recap" element={<Recap />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/settings" element={<Settings />} />
           </Routes>
         </div>
       </div>

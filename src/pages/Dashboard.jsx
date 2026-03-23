@@ -9,10 +9,12 @@ import { profit, rendement, fmtEur, fmtPct, daysSince, catBadgeStyle, catColor, 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend)
 
 const EXCLUDED_STATUTS = ['Remboursé', 'En retour']
+const DELAI_RETOUR = 30
+const ALERTE_AVANT = 7
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { items, categories, ventesUnitaires, loading, addItem, updateItem, deleteItem, duplicateItem } = useItemsContext()
+  const { items, categories, ventesUnitaires, abonnements, loading, addItem, updateItem, deleteItem, duplicateItem } = useItemsContext()
   const [showModal, setShowModal] = useState(false)
   const [editItem, setEditItem] = useState(null)
   const [search, setSearch] = useState('')
@@ -21,37 +23,43 @@ export default function Dashboard() {
   const [filterPf, setFilterPf] = useState('')
   const [sortOrder, setSortOrder] = useState('recent')
 
-  // Items filtrés par catégorie globale (pour les KPIs)
-  const kpiItems = useMemo(() => items.filter(i => {
-    if (filterCat && i.categorie !== filterCat) return false
-    return true
-  }), [items, filterCat])
-
-  // Exclure remboursé/retour des stats
-  const soldItems = useMemo(() => kpiItems.filter(i => i.statut === 'Vendu' && i.prix_vente), [kpiItems])
+  const kpiItems = useMemo(() => items.filter(i => !filterCat || i.categorie === filterCat), [items, filterCat])
   const stockItems = useMemo(() => kpiItems.filter(i => !['Vendu', ...EXCLUDED_STATUTS].includes(i.statut)), [kpiItems])
   const alertItems = useMemo(() => stockItems.filter(i => daysSince(i.date_achat) > 90), [stockItems])
+
+  // Alertes retour (J-7 avant 30j)
+  const alertesRetour = useMemo(() => items.filter(i => {
+    if (['Vendu', 'En retour', 'Remboursé'].includes(i.statut)) return false
+    if (!i.date_achat) return false
+    const days = daysSince(i.date_achat)
+    return days >= (DELAI_RETOUR - ALERTE_AVANT) && days < DELAI_RETOUR
+  }), [items])
 
   const totalCA = useMemo(() => kpiItems.filter(i => !EXCLUDED_STATUTS.includes(i.statut)).reduce((s, i) => {
     const v = i.quantite_mode ? (lotVenteTotal(i, ventesUnitaires) || 0) : (i.prix_vente || 0)
     return s + v
   }, 0), [kpiItems, ventesUnitaires])
+
   const totalBenef = useMemo(() => kpiItems.filter(i => !EXCLUDED_STATUTS.includes(i.statut)).reduce((s, i) => {
     const p = i.quantite_mode ? (lotProfit(i, ventesUnitaires) || 0) : (profit(i) || 0)
     return s + p
   }, 0), [kpiItems, ventesUnitaires])
+
+  const totalCharges = useMemo(() => abonnements.filter(a => a.actif).reduce((s, a) => s + a.montant, 0), [abonnements])
+  const totalBenefNet = totalBenef - totalCharges
+
   const totalStock = useMemo(() => stockItems.reduce((s, i) => s + lotValeurStock(i, ventesUnitaires), 0), [stockItems, ventesUnitaires])
+
   const avgROI = useMemo(() => {
     const rends = kpiItems.filter(i => !EXCLUDED_STATUTS.includes(i.statut) && !i.quantite_mode).map(i => rendement(i)).filter(r => r != null)
     return rends.length ? rends.reduce((s, r) => s + r, 0) / rends.length : 0
-  }, [kpiItems, ventesUnitaires])
+  }, [kpiItems])
 
   const bestCat = useMemo(() => {
     const map = {}
     kpiItems.filter(i => !EXCLUDED_STATUTS.includes(i.statut)).forEach(i => {
       if (!map[i.categorie]) map[i.categorie] = 0
-      const p = i.quantite_mode ? (lotProfit(i, ventesUnitaires) || 0) : (profit(i) || 0)
-      map[i.categorie] += p
+      map[i.categorie] += i.quantite_mode ? (lotProfit(i, ventesUnitaires) || 0) : (profit(i) || 0)
     })
     return Object.entries(map).sort((a, b) => b[1] - a[1])[0]?.[0] || '—'
   }, [kpiItems, ventesUnitaires])
@@ -67,7 +75,7 @@ export default function Dashboard() {
     return {
       labels: allKeys.map(formatMonth),
       ca: allKeys.map(k => grouped[k]?.reduce((s, i) => s + (i.prix_vente || 0), 0) || 0),
-      achats: allKeys.map(k => achatGrouped[k]?.reduce((s, i) => s + (i.quantite_mode ? lotAchatTotal(i) : (i.prix_achat || 0)), 0) || 0),
+      achats: allKeys.map(k => achatGrouped[k]?.reduce((s, i) => s + lotAchatTotal(i), 0) || 0),
     }
   }, [kpiItems, ventesUnitaires])
 
@@ -75,8 +83,7 @@ export default function Dashboard() {
     const map = {}
     kpiItems.filter(i => !EXCLUDED_STATUTS.includes(i.statut)).forEach(i => {
       if (!map[i.categorie]) map[i.categorie] = 0
-      const p = i.quantite_mode ? (lotProfit(i, ventesUnitaires) || 0) : (profit(i) || 0)
-      map[i.categorie] += p
+      map[i.categorie] += i.quantite_mode ? (lotProfit(i, ventesUnitaires) || 0) : (profit(i) || 0)
     })
     const cats = Object.entries(map).filter(([, v]) => v !== 0)
     return {
@@ -93,8 +100,7 @@ export default function Dashboard() {
     if (filterPf && i.plateforme_achat !== filterPf) return false
     return true
   }).sort((a, b) => {
-    const da = a.date_achat || ''
-    const db = b.date_achat || ''
+    const da = a.date_achat || '', db = b.date_achat || ''
     return sortOrder === 'recent' ? db.localeCompare(da) : da.localeCompare(db)
   }), [items, search, filterCat, filterSt, filterPf, sortOrder])
 
@@ -134,33 +140,60 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Filtre global catégorie */}
+      {/* Filtres catégorie */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {['', ...categories.map(c => c.name)].map(cat => {
           const isActive = filterCat === cat
           const color = cat ? catColor(cat, categories) : 'var(--text)'
           return (
-            <button key={cat || 'all'} onClick={() => setFilterCat(cat)}
-              style={{
-                padding: '5px 14px', borderRadius: 20, fontSize: 12, cursor: 'pointer',
-                background: isActive ? (cat ? color + '22' : 'var(--bg3)') : 'var(--bg2)',
-                color: isActive ? (cat ? color : 'var(--text)') : 'var(--mut)',
-                border: `0.5px solid ${isActive ? (cat ? color : 'var(--brd2)') : 'var(--brd)'}`,
-                transition: 'all 0.15s',
-              }}>
+            <button key={cat || 'all'} onClick={() => setFilterCat(cat)} style={{
+              padding: '5px 14px', borderRadius: 20, fontSize: 12, cursor: 'pointer',
+              background: isActive ? (cat ? color + '22' : 'var(--bg3)') : 'var(--bg2)',
+              color: isActive ? (cat ? color : 'var(--text)') : 'var(--mut)',
+              border: `0.5px solid ${isActive ? (cat ? color : 'var(--brd2)') : 'var(--brd)'}`,
+              transition: 'all 0.15s',
+            }}>
               {cat || 'Toutes catégories'}
             </button>
           )
         })}
       </div>
 
+      {/* Alertes retour */}
+      {alertesRetour.length > 0 && (
+        <div style={{
+          background: 'rgba(239,68,68,0.07)', border: '0.5px solid rgba(239,68,68,0.3)',
+          borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 12
+        }}>
+          <div style={{ fontWeight: 500, color: 'var(--red)', marginBottom: 8 }}>
+            🔔 {alertesRetour.length} retour{alertesRetour.length > 1 ? 's' : ''} à effectuer avant la deadline !
+          </div>
+          {alertesRetour.map(item => {
+            const days = daysSince(item.date_achat)
+            const remaining = DELAI_RETOUR - days
+            return (
+              <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0', borderTop: '0.5px solid rgba(239,68,68,0.15)', marginTop: 6 }}
+                onClick={() => { setEditItem(item); setShowModal(true) }}>
+                <span style={{ cursor: 'pointer', color: 'var(--text)', fontWeight: 500 }}>{item.nom}</span>
+                <span style={{ color: 'var(--mut)' }}>{item.plateforme_achat || '—'}</span>
+                <span style={{ marginLeft: 'auto', color: remaining <= 3 ? 'var(--red)' : 'var(--o)', fontWeight: 500 }}>
+                  ⏰ {remaining}j restant{remaining > 1 ? 's' : ''}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Alerte stock ancien */}
       {alertItems.length > 0 && (
         <div className="alert-banner" style={{ marginBottom: 20, cursor: 'pointer' }}
           onClick={() => navigate('/stock?alert=90')}>
           <span style={{ color: 'var(--o)', fontSize: 15 }}>⚠</span>
           <span>
             <strong style={{ color: 'var(--o)' }}>{alertItems.length} item{alertItems.length > 1 ? 's' : ''}</strong>
-            {' '}en stock depuis plus de 90 jours — <span style={{ color: 'var(--o)', textDecoration: 'underline' }}>voir la liste</span>
+            {' '}en stock depuis plus de 90 jours —{' '}
+            <span style={{ color: 'var(--o)', textDecoration: 'underline' }}>voir la liste</span>
           </span>
         </div>
       )}
@@ -177,7 +210,11 @@ export default function Dashboard() {
           <div className="kpi-value" style={{ color: totalBenef >= 0 ? 'var(--g)' : 'var(--red)' }}>
             {totalBenef >= 0 ? '+' : ''}{fmtEur(totalBenef)}
           </div>
-          <div className="kpi-sub" style={{ color: avgROI >= 0 ? 'var(--g)' : 'var(--red)' }}>{fmtPct(avgROI)} ROI moyen</div>
+          {abonnements.length > 0 && (
+            <div className="kpi-sub" style={{ color: totalBenefNet >= 0 ? 'var(--g)' : 'var(--red)' }}>
+              Après charges : {totalBenefNet >= 0 ? '+' : ''}{fmtEur(totalBenefNet)}/mois
+            </div>
+          )}
         </div>
         <div className="kpi-card" style={{ cursor: 'pointer' }} onClick={() => navigate('/stock?st=En+stock')}>
           <div className="kpi-label">Valeur stock ↗</div>
@@ -191,6 +228,25 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Charges mensuelles */}
+      {abonnements.length > 0 && (
+        <div style={{ background: 'var(--bg2)', border: '0.5px solid var(--brd2)', borderRadius: 12, padding: '16px 20px', marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div style={{ fontSize: 13, fontWeight: 500 }}>Charges mensuelles</div>
+            <div style={{ fontSize: 13, color: 'var(--red)', fontWeight: 500 }}>-{fmtEur(totalCharges)}/mois</div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {abonnements.filter(a => a.actif).map(a => (
+              <div key={a.id} style={{ background: 'var(--bg3)', borderRadius: 8, padding: '6px 12px', fontSize: 12 }}>
+                <span style={{ color: 'var(--mut)' }}>{a.nom}</span>
+                <span style={{ color: 'var(--red)', marginLeft: 6, fontWeight: 500 }}>-{fmtEur(a.montant)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Charts */}
       {monthlyData.labels.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
           <div className="card">
@@ -228,7 +284,9 @@ export default function Dashboard() {
                       <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--mut)' }}>
                         <span style={{ width: 7, height: 7, borderRadius: '50%', background: catData.colors[i], flexShrink: 0 }} />
                         {label}
-                        <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--g)', marginLeft: 'auto' }}>+{catData.data[i]}€</span>
+                        <span style={{ fontSize: 12, fontWeight: 500, color: catData.data[i] >= 0 ? 'var(--g)' : 'var(--red)', marginLeft: 'auto' }}>
+                          {catData.data[i] >= 0 ? '+' : ''}{catData.data[i]}€
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -243,7 +301,7 @@ export default function Dashboard() {
       <div className="table-container">
         <div className="table-header">
           <div style={{ fontSize: 14, fontWeight: 500 }}>Stock & Historique</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <select className="form-input" style={{ padding: '5px 10px', fontSize: 11, borderRadius: 20, width: 'auto' }}
               value={sortOrder} onChange={e => setSortOrder(e.target.value)}>
               <option value="recent">Plus récent</option>
@@ -283,9 +341,10 @@ export default function Dashboard() {
               const r = rendement(item)
               const days = daysSince(item.date_achat)
               const isOld = !['Vendu', ...EXCLUDED_STATUTS].includes(item.statut) && days > 90
+              const isRetourAlert = alertesRetour.some(a => a.id === item.id)
               const badgeStyle = catBadgeStyle(item.categorie, categories)
               return (
-                <tr key={item.id} onClick={() => { setEditItem(item); setShowModal(true) }} style={{ cursor: 'pointer' }}>
+                <tr key={item.id} onClick={() => { setEditItem(item); setShowModal(true) }} style={{ cursor: 'pointer', background: isRetourAlert ? 'rgba(239,68,68,0.04)' : undefined }}>
                   <td>
                     {item.image_url
                       ? <img src={item.image_url} alt="" style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, border: '0.5px solid var(--brd2)' }} />
@@ -296,6 +355,7 @@ export default function Dashboard() {
                     <div style={{ fontWeight: 500, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.nom}</div>
                     {item.quantite_mode && <div style={{ fontSize: 10, color: 'var(--b)', marginTop: 2 }}>📦 Lot × {item.quantite_total}</div>}
                     {isOld && <div style={{ fontSize: 10, color: 'var(--o)', marginTop: 2 }}>⚠ {days}j en stock</div>}
+                    {isRetourAlert && <div style={{ fontSize: 10, color: 'var(--red)', marginTop: 2 }}>🔔 Retour dans {DELAI_RETOUR - days}j !</div>}
                     {item.notes && <div style={{ fontSize: 10, color: 'var(--mut)', marginTop: 2 }}>{item.notes}</div>}
                   </td>
                   <td><span className="badge" style={badgeStyle}>{item.categorie}</span></td>

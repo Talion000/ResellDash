@@ -143,10 +143,44 @@ export function useItems() {
 
   const getVentesForItem = (itemId) => ventesUnitaires.filter(v => v.item_id === itemId)
 
+  // Abonnements
+  const [abonnements, setAbonnements] = useState([])
+
+  const fetchAbonnements = useCallback(async () => {
+    if (!user) return
+    const { data } = await supabase.from('abonnements').select('*').eq('user_id', user.id).order('nom')
+    if (data) setAbonnements(data)
+  }, [user])
+
+  useEffect(() => { fetchAbonnements() }, [fetchAbonnements])
+
+  const addAbonnement = async (nom, montant) => {
+    const { data, error } = await supabase
+      .from('abonnements')
+      .insert([{ nom, montant: parseFloat(montant), user_id: user.id }])
+      .select().single()
+    if (!error) setAbonnements(prev => [...prev, data].sort((a,b) => a.nom.localeCompare(b.nom)))
+    return { data, error }
+  }
+
+  const updateAbonnement = async (id, updates) => {
+    const { data, error } = await supabase
+      .from('abonnements').update(updates).eq('id', id).eq('user_id', user.id).select().single()
+    if (!error) setAbonnements(prev => prev.map(a => a.id === id ? data : a))
+    return { data, error }
+  }
+
+  const deleteAbonnement = async (id) => {
+    const { error } = await supabase.from('abonnements').delete().eq('id', id).eq('user_id', user.id)
+    if (!error) setAbonnements(prev => prev.filter(a => a.id !== id))
+    return { error }
+  }
+
   return {
-    items, categories, ventesUnitaires, loading,
+    items, categories, ventesUnitaires, abonnements, loading,
     addItem, updateItem, deleteItem, duplicateItem,
     addCategory, fetchItems, fetchCategories,
     addVenteUnitaire, deleteVenteUnitaire, getVentesForItem,
+    addAbonnement, updateAbonnement, deleteAbonnement,
   }
 }
