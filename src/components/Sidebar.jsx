@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useItemsContext } from '../hooks/ItemsContext'
 
 const ADMIN_EMAILS = ['plainite000@gmail.com']
-const CAT_COLORS = ['#22c55e', '#3b82f6', '#f97316', '#a855f7', '#ec4899', '#14b8a6', '#f59e0b']
+const CAT_COLORS = ['#a855f7', '#f59e0b', '#ec4899', '#14b8a6', '#3b82f6', '#f97316', '#22c55e']
 
 export default function Sidebar() {
   const { signOut, user } = useAuth()

@@ -1,43 +1,72 @@
-import { useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip } from 'chart.js'
 import { useItemsContext } from '../hooks/ItemsContext'
-import { profit, rendement, fmtEur, fmtPct, fmt, groupByMonth, formatMonth, catBadgeStyle, catColor } from '../lib/utils'
+import ItemModal from '../components/ItemModal'
+import { profit, rendement, fmtEur, fmtPct, groupByMonth, formatMonth, catBadgeStyle, lotAchatTotal, lotVenteTotal, lotProfit } from '../lib/utils'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip)
 
+const EXCLUDED = ['Remboursé', 'En retour']
+
 export default function Ventes() {
-  const { items } = useItemsContext()
+  const { items, categories, ventesUnitaires, updateItem, addItem } = useItemsContext()
+  const [editItem, setEditItem] = useState(null)
+  const [showModal, setShowModal] = useState(false)
 
-  const sold = useMemo(() => items.filter(i => i.statut === 'Vendu' && i.prix_vente), [items])
+  // Items vendus (normaux) + lots avec au moins 1 vente
+  const sold = useMemo(() => items.filter(i => {
+    if (EXCLUDED.includes(i.statut)) return false
+    if (i.quantite_mode) return ventesUnitaires.some(v => v.item_id === i.id)
+    return i.statut === 'Vendu' && i.prix_vente
+  }), [items, ventesUnitaires])
 
-  const totalCA = useMemo(() => sold.reduce((s, i) => s + i.prix_vente, 0), [sold])
-  const totalBenef = useMemo(() => sold.reduce((s, i) => s + (profit(i) || 0), 0), [sold])
-  const totalAchats = useMemo(() => sold.reduce((s, i) => s + i.prix_achat, 0), [sold])
+  const totalCA = useMemo(() => sold.reduce((s, i) => {
+    const v = i.quantite_mode ? (lotVenteTotal(i, ventesUnitaires) || 0) : (i.prix_vente || 0)
+    return s + v
+  }, 0), [sold, ventesUnitaires])
+
+  const totalBenef = useMemo(() => sold.reduce((s, i) => {
+    const p = i.quantite_mode ? (lotProfit(i, ventesUnitaires) || 0) : (profit(i) || 0)
+    return s + p
+  }, 0), [sold, ventesUnitaires])
+
+  const totalAchats = useMemo(() => sold.reduce((s, i) => s + lotAchatTotal(i), 0), [sold])
+
   const avgROI = useMemo(() => {
-    const rs = sold.map(i => rendement(i)).filter(r => r != null)
-    return rs.length ? rs.reduce((s, r) => s + r, 0) / rs.length : 0
+    const rends = sold.filter(i => !i.quantite_mode).map(i => rendement(i)).filter(r => r != null)
+    return rends.length ? rends.reduce((s, r) => s + r, 0) / rends.length : 0
   }, [sold])
 
   const bestItem = useMemo(() => {
     if (!sold.length) return null
-    return sold.reduce((best, i) => (profit(i) || 0) > (profit(best) || 0) ? i : best, sold[0])
-  }, [sold])
+    return sold.reduce((best, i) => {
+      const pb = i.quantite_mode ? (lotProfit(i, ventesUnitaires) || 0) : (profit(i) || 0)
+      const pc = best.quantite_mode ? (lotProfit(best, ventesUnitaires) || 0) : (profit(best) || 0)
+      return pb > pc ? i : best
+    }, sold[0])
+  }, [sold, ventesUnitaires])
 
   const worstItem = useMemo(() => {
     if (!sold.length) return null
-    return sold.reduce((worst, i) => (profit(i) || 0) < (profit(worst) || 0) ? i : worst, sold[0])
-  }, [sold])
+    return sold.reduce((worst, i) => {
+      const pb = i.quantite_mode ? (lotProfit(i, ventesUnitaires) || 0) : (profit(i) || 0)
+      const pc = worst.quantite_mode ? (lotProfit(worst, ventesUnitaires) || 0) : (profit(worst) || 0)
+      return pb < pc ? i : worst
+    }, sold[0])
+  }, [sold, ventesUnitaires])
 
   const monthly = useMemo(() => {
-    const grouped = groupByMonth(sold, 'date_vente')
+    const grouped = groupByMonth(sold.filter(i => !i.quantite_mode), 'date_vente')
     const achatGrouped = groupByMonth(items.filter(i => i.date_achat), 'date_achat')
-    const allKeys = [...new Set([...Object.keys(grouped), ...Object.keys(achatGrouped)])].sort()
+    const allKeys = [...new Set([...Object.keys(grouped), ...Object.keys(achatGrouped)])]
+      .filter(k => k && k.match(/^\d{4}-\d{2}$/))
+      .sort()
     return allKeys.map(k => ({
       key: k,
       label: formatMonth(k),
-      ca: grouped[k]?.reduce((s, i) => s + i.prix_vente, 0) || 0,
-      achats: achatGrouped[k]?.reduce((s, i) => s + i.prix_achat, 0) || 0,
+      ca: grouped[k]?.reduce((s, i) => s + (i.prix_vente || 0), 0) || 0,
+      achats: achatGrouped[k]?.reduce((s, i) => s + lotAchatTotal(i), 0) || 0,
       benef: grouped[k]?.reduce((s, i) => s + (profit(i) || 0), 0) || 0,
       nb: grouped[k]?.length || 0,
     }))
@@ -48,13 +77,19 @@ export default function Ventes() {
     sold.forEach(i => {
       const pf = i.plateforme_achat || 'Inconnu'
       if (!map[pf]) map[pf] = { ca: 0, benef: 0, nb: 0 }
-      map[pf].ca += i.prix_vente
-      map[pf].benef += profit(i) || 0
+      map[pf].ca += i.quantite_mode ? (lotVenteTotal(i, ventesUnitaires) || 0) : (i.prix_vente || 0)
+      map[pf].benef += i.quantite_mode ? (lotProfit(i, ventesUnitaires) || 0) : (profit(i) || 0)
       map[pf].nb++
     })
-    return Object.entries(map).map(([name, v]) => ({ name, ...v, roi: v.ca > 0 ? (v.benef / (v.ca - v.benef)) * 100 : 0 }))
+    return Object.entries(map)
+      .map(([name, v]) => ({ name, ...v, roi: v.ca > 0 ? (v.benef / (v.ca - v.benef)) * 100 : 0 }))
       .sort((a, b) => b.benef - a.benef)
-  }, [sold])
+  }, [sold, ventesUnitaires])
+
+  const handleSave = async (data) => {
+    if (editItem?.id) return updateItem(editItem.id, data)
+    return addItem(data)
+  }
 
   const barOptions = {
     responsive: true, maintainAspectRatio: false,
@@ -69,7 +104,6 @@ export default function Ventes() {
     <div style={{ padding: '20px 28px' }}>
       <div style={{ fontSize: 18, fontWeight: 500, letterSpacing: '-0.3px', marginBottom: 24 }}>Ventes</div>
 
-      {/* KPIs */}
       <div className="kpi-grid" style={{ marginBottom: 20 }}>
         <div className="kpi-card">
           <div className="kpi-label">CA total</div>
@@ -85,7 +119,7 @@ export default function Ventes() {
         </div>
         <div className="kpi-card">
           <div className="kpi-label">Total achats</div>
-          <div className="kpi-value" style={{ color: 'var(--o)' }}>{fmtEur(totalAchats)}</div>
+          <div className="kpi-value" style={{ color: 'var(--b)' }}>{fmtEur(totalAchats)}</div>
           <div className="kpi-sub">investi sur items vendus</div>
         </div>
         <div className="kpi-card">
@@ -97,34 +131,26 @@ export default function Ventes() {
         </div>
       </div>
 
-      {/* Charts */}
       {monthly.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14, marginBottom: 20 }}>
           <div className="card">
             <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>Évolution mensuelle</div>
             <div style={{ fontSize: 11, color: 'var(--mut)', marginBottom: 14 }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginRight: 12 }}>
-                <span style={{ width: 8, height: 8, background: '#22c55e', borderRadius: 2, display: 'inline-block' }} /> CA
-              </span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginRight: 12 }}>
-                <span style={{ width: 8, height: 8, background: '#3b82f6', borderRadius: 2, display: 'inline-block' }} /> Achats
-              </span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                <span style={{ width: 8, height: 8, background: '#f97316', borderRadius: 2, display: 'inline-block' }} /> Bénéfice
-              </span>
+              {[['#22c55e','CA'],['#3b82f6','Achats'],['#f97316','Bénéfice']].map(([c,l]) => (
+                <span key={l} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginRight: 12 }}>
+                  <span style={{ width: 8, height: 8, background: c, borderRadius: 2, display: 'inline-block' }} /> {l}
+                </span>
+              ))}
             </div>
             <div style={{ height: 160, position: 'relative' }}>
-              <Bar
-                data={{
-                  labels: monthly.map(m => m.label),
-                  datasets: [
-                    { label: 'CA', data: monthly.map(m => m.ca), backgroundColor: '#22c55e33', borderColor: '#22c55e', borderWidth: 1, borderRadius: 3 },
-                    { label: 'Achats', data: monthly.map(m => m.achats), backgroundColor: '#3b82f633', borderColor: '#3b82f6', borderWidth: 1, borderRadius: 3 },
-                    { label: 'Bénéfice', data: monthly.map(m => m.benef), backgroundColor: '#f9731633', borderColor: '#f97316', borderWidth: 1, borderRadius: 3 },
-                  ]
-                }}
-                options={barOptions}
-              />
+              <Bar data={{
+                labels: monthly.map(m => m.label),
+                datasets: [
+                  { label: 'CA', data: monthly.map(m => m.ca), backgroundColor: '#22c55e33', borderColor: '#22c55e', borderWidth: 1, borderRadius: 3 },
+                  { label: 'Achats', data: monthly.map(m => m.achats), backgroundColor: '#3b82f633', borderColor: '#3b82f6', borderWidth: 1, borderRadius: 3 },
+                  { label: 'Bénéfice', data: monthly.map(m => m.benef), backgroundColor: '#f9731633', borderColor: '#f97316', borderWidth: 1, borderRadius: 3 },
+                ]
+              }} options={barOptions} />
             </div>
           </div>
 
@@ -134,7 +160,9 @@ export default function Ventes() {
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontSize: 10, color: 'var(--mut)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>Meilleur item</div>
                 <div style={{ fontSize: 12, fontWeight: 500 }}>{bestItem.nom}</div>
-                <div className="profit-pos" style={{ fontSize: 13, fontWeight: 500 }}>+{fmtEur(profit(bestItem))}</div>
+                <div className="profit-pos" style={{ fontSize: 13, fontWeight: 500 }}>
+                  +{fmtEur(bestItem.quantite_mode ? lotProfit(bestItem, ventesUnitaires) : profit(bestItem))}
+                </div>
               </div>
             )}
             {worstItem && worstItem.id !== bestItem?.id && (
@@ -142,7 +170,7 @@ export default function Ventes() {
                 <div style={{ fontSize: 10, color: 'var(--mut)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>Pire item</div>
                 <div style={{ fontSize: 12, fontWeight: 500 }}>{worstItem.nom}</div>
                 <div className={profit(worstItem) >= 0 ? 'profit-pos' : 'profit-neg'} style={{ fontSize: 13, fontWeight: 500 }}>
-                  {profit(worstItem) >= 0 ? '+' : ''}{fmtEur(profit(worstItem))}
+                  {(() => { const p = worstItem.quantite_mode ? lotProfit(worstItem, ventesUnitaires) : profit(worstItem); return (p >= 0 ? '+' : '') + fmtEur(p) })()}
                 </div>
               </div>
             )}
@@ -150,34 +178,21 @@ export default function Ventes() {
         </div>
       )}
 
-      {/* Plateformes stats */}
       {pfStats.length > 0 && (
         <div className="card" style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 14 }}>Performance par plateforme</div>
           <table style={{ width: '100%' }}>
             <thead>
-              <tr>
-                <th>Plateforme</th>
-                <th>Nb ventes</th>
-                <th>CA</th>
-                <th>Bénéfice</th>
-                <th>ROI</th>
-              </tr>
+              <tr><th>Plateforme</th><th>Nb ventes</th><th>CA</th><th>Bénéfice</th><th>ROI</th></tr>
             </thead>
             <tbody>
               {pfStats.map(pf => (
                 <tr key={pf.name}>
                   <td style={{ fontWeight: 500 }}>{pf.name}</td>
                   <td style={{ color: 'var(--mut)' }}>{pf.nb}</td>
-                  <td>{fmtEur(pf.ca)}</td>
-                  <td>
-                    <span className={pf.benef >= 0 ? 'profit-pos' : 'profit-neg'}>
-                      {pf.benef >= 0 ? '+' : ''}{fmtEur(pf.benef)}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={pf.roi >= 0 ? 'profit-pos' : 'profit-neg'}>{fmtPct(pf.roi)}</span>
-                  </td>
+                  <td style={{ color: 'var(--g)' }}>{fmtEur(pf.ca)}</td>
+                  <td><span className={pf.benef >= 0 ? 'profit-pos' : 'profit-neg'}>{pf.benef >= 0 ? '+' : ''}{fmtEur(pf.benef)}</span></td>
+                  <td><span className={pf.roi >= 0 ? 'profit-pos' : 'profit-neg'}>{fmtPct(pf.roi)}</span></td>
                 </tr>
               ))}
             </tbody>
@@ -185,7 +200,6 @@ export default function Ventes() {
         </div>
       )}
 
-      {/* Historique des ventes */}
       <div className="table-container">
         <div className="table-header">
           <div style={{ fontSize: 14, fontWeight: 500 }}>Historique des ventes</div>
@@ -207,17 +221,26 @@ export default function Ventes() {
                   <p>Aucune vente enregistrée pour le moment.</p>
                 </div>
               </td></tr>
-            ) : [...sold].sort((a, b) => (b.date_vente || '').localeCompare(a.date_vente || '')).map(item => {
-              const p = profit(item)
-              const r = rendement(item)
+            ) : [...sold].sort((a, b) => {
+              const da = a.quantite_mode ? '' : (a.date_vente || '')
+              const db = b.quantite_mode ? '' : (b.date_vente || '')
+              return db.localeCompare(da)
+            }).map(item => {
+              const p = item.quantite_mode ? lotProfit(item, ventesUnitaires) : profit(item)
+              const r = item.quantite_mode ? null : rendement(item)
+              const achat = lotAchatTotal(item)
+              const vente = item.quantite_mode ? lotVenteTotal(item, ventesUnitaires) : item.prix_vente
               return (
-                <tr key={item.id}>
-                  <td style={{ fontWeight: 500 }}>{item.nom}</td>
-                  <td><span className="badge" style={catBadgeStyle(item.categorie)}>{item.categorie}</span></td>
-                  <td>{fmtEur(item.prix_achat)}</td>
-                  <td>{fmtEur(item.prix_vente)}</td>
-                  <td><span className={p >= 0 ? 'profit-pos' : 'profit-neg'}>{p >= 0 ? '+' : ''}{fmtEur(p)}</span></td>
-                  <td><span className={r >= 0 ? 'profit-pos' : 'profit-neg'}>{fmtPct(r)}</span></td>
+                <tr key={item.id} style={{ cursor: 'pointer' }} onClick={() => { setEditItem(item); setShowModal(true) }}>
+                  <td>
+                    <div style={{ fontWeight: 500 }}>{item.nom}</div>
+                    {item.quantite_mode && <div style={{ fontSize: 10, color: 'var(--b)' }}>Lot × {item.quantite_total}</div>}
+                  </td>
+                  <td><span className="badge" style={catBadgeStyle(item.categorie, categories)}>{item.categorie}</span></td>
+                  <td style={{ color: 'var(--b)' }}>{fmtEur(achat)}</td>
+                  <td style={{ color: 'var(--g)' }}>{vente ? fmtEur(vente) : '—'}</td>
+                  <td>{p != null ? <span className={p >= 0 ? 'profit-pos' : 'profit-neg'}>{p >= 0 ? '+' : ''}{fmtEur(p)}</span> : '—'}</td>
+                  <td>{r != null ? <span className={r >= 0 ? 'profit-pos' : 'profit-neg'}>{fmtPct(r)}</span> : '—'}</td>
                   <td style={{ color: 'var(--mut)' }}>{item.date_vente ? new Date(item.date_vente).toLocaleDateString('fr-FR') : '—'}</td>
                   <td style={{ color: 'var(--mut)' }}>{item.plateforme_achat || '—'}</td>
                 </tr>
@@ -226,6 +249,11 @@ export default function Ventes() {
           </tbody>
         </table>
       </div>
+
+      {showModal && (
+        <ItemModal item={editItem} categories={categories} onSave={handleSave}
+          onClose={() => { setShowModal(false); setEditItem(null) }} />
+      )}
     </div>
   )
 }

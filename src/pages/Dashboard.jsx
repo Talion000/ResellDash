@@ -155,9 +155,13 @@ export default function Dashboard() {
       </div>
 
       {alertItems.length > 0 && (
-        <div className="alert-banner" style={{ marginBottom: 20 }}>
+        <div className="alert-banner" style={{ marginBottom: 20, cursor: 'pointer' }}
+          onClick={() => navigate('/stock?alert=90')}>
           <span style={{ color: 'var(--o)', fontSize: 15 }}>⚠</span>
-          <span><strong style={{ color: 'var(--o)' }}>{alertItems.length} item{alertItems.length > 1 ? 's' : ''}</strong> en stock depuis plus de 90 jours</span>
+          <span>
+            <strong style={{ color: 'var(--o)' }}>{alertItems.length} item{alertItems.length > 1 ? 's' : ''}</strong>
+            {' '}en stock depuis plus de 90 jours — <span style={{ color: 'var(--o)', textDecoration: 'underline' }}>voir la liste</span>
+          </span>
         </div>
       )}
 

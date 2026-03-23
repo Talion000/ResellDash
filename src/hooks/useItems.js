@@ -3,9 +3,9 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 
 const DEFAULT_CATEGORIES = [
-  { name: 'Sneakers', color: '#3b82f6' },
-  { name: 'Pokémon', color: '#f97316' },
-  { name: 'Random', color: '#22c55e' },
+  { name: 'Sneakers', color: '#a855f7' },
+  { name: 'Pokémon', color: '#f59e0b' },
+  { name: 'Random', color: '#ec4899' },
 ]
 
 export function useItems() {

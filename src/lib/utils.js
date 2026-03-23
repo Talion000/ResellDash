@@ -35,9 +35,9 @@ export function daysSince(dateStr) {
 
 // Couleurs fixes par catégorie par défaut
 export const CAT_COLORS_DEFAULT = {
-  'Sneakers': '#3b82f6',   // bleu
+  'Sneakers': '#a855f7',   // violet
   'Pokémon':  '#f59e0b',   // jaune/or
-  'Random':   '#a855f7',   // violet
+  'Random':   '#ec4899',   // rose
 }
 
 export function catColor(cat, categories = []) {

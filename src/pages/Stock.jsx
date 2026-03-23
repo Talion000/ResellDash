@@ -12,6 +12,7 @@ export default function Stock() {
   const [search, setSearch] = useState('')
   const [filterCat, setFilterCat] = useState(searchParams.get('cat') || '')
   const [filterSt, setFilterSt] = useState(searchParams.get('st') || '')
+  const alertMode = searchParams.get('alert') === '90'
   const [filterPf, setFilterPf] = useState('')
   const [filterTaille, setFilterTaille] = useState('')
   const [sortBy, setSortBy] = useState('date_achat')
@@ -24,6 +25,10 @@ export default function Stock() {
 
   const filtered = useMemo(() => {
     let list = items.filter(i => {
+      if (alertMode) {
+        const days = daysSince(i.date_achat)
+        return !['Vendu','Remboursé','En retour'].includes(i.statut) && days > 90
+      }
       if (search && !i.nom.toLowerCase().includes(search.toLowerCase()) && !(i.taille_ref || '').toLowerCase().includes(search.toLowerCase())) return false
       if (filterCat && i.categorie !== filterCat) return false
       if (filterSt && i.statut !== filterSt) return false
@@ -39,7 +44,7 @@ export default function Stock() {
       return sortDir === 'asc' ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1)
     })
     return list
-  }, [items, search, filterCat, filterSt, filterPf, filterTaille, sortBy, sortDir])
+  }, [items, search, filterCat, filterSt, filterPf, filterTaille, sortBy, sortDir, alertMode])
 
   const handleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -109,6 +114,13 @@ export default function Stock() {
         ))}
       </div>
 
+      {alertMode && (
+        <div className="alert-banner" style={{ marginBottom: 16 }}>
+          <span style={{ color: 'var(--o)', fontSize: 15 }}>⚠</span>
+          <span>Affichage des items en stock depuis <strong style={{ color: 'var(--o)' }}>plus de 90 jours</strong></span>
+          <button className="btn-ghost" style={{ marginLeft: 'auto' }} onClick={() => window.history.back()}>← Retour</button>
+        </div>
+      )}
       {/* Bulk actions */}
       {selected.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, padding: '10px 16px', background: 'var(--bg2)', border: '0.5px solid var(--brd2)', borderRadius: 10 }}>
