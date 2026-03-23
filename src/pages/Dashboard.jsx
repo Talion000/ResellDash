@@ -4,6 +4,7 @@ import { Bar, Doughnut } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend } from 'chart.js'
 import { useItemsContext } from '../hooks/ItemsContext'
 import ItemModal from '../components/ItemModal'
+import ScanModal from '../components/ScanModal'
 import { profit, rendement, fmtEur, fmtPct, daysSince, catBadgeStyle, catColor, statusClass, groupByMonth, formatMonth, STATUTS, lotAchatTotal, lotVenteTotal, lotProfit, lotValeurStock } from '../lib/utils'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend)
@@ -16,6 +17,7 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const { items, categories, ventesUnitaires, abonnements, loading, addItem, updateItem, deleteItem, duplicateItem } = useItemsContext()
   const [showModal, setShowModal] = useState(false)
+  const [showScan, setShowScan] = useState(false)
   const [editItem, setEditItem] = useState(null)
   const [search, setSearch] = useState('')
   const [filterCat, setFilterCat] = useState('')
@@ -136,6 +138,7 @@ export default function Dashboard() {
             <input style={{ background: 'none', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 12, width: '100%' }}
               placeholder="Rechercher un item..." value={search} onChange={e => setSearch(e.target.value)} />
           </div>
+          <button className="btn-secondary" onClick={() => setShowScan(true)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>📷 Scan</button>
           <button className="btn-primary" onClick={() => { setEditItem(null); setShowModal(true) }}>+ Ajouter</button>
         </div>
       </div>
@@ -165,8 +168,15 @@ export default function Dashboard() {
           background: 'rgba(239,68,68,0.07)', border: '0.5px solid rgba(239,68,68,0.3)',
           borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 12
         }}>
-          <div style={{ fontWeight: 500, color: 'var(--red)', marginBottom: 8 }}>
-            🔔 {alertesRetour.length} retour{alertesRetour.length > 1 ? 's' : ''} à effectuer avant la deadline !
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div style={{ fontWeight: 500, color: 'var(--red)' }}>
+              🔔 {alertesRetour.length} retour{alertesRetour.length > 1 ? 's' : ''} à effectuer avant la deadline !
+            </div>
+            <button
+              onClick={e => { e.stopPropagation(); setShowScan(true) }}
+              style={{ background: 'rgba(239,68,68,0.15)', border: '0.5px solid rgba(239,68,68,0.4)', borderRadius: 8, padding: '6px 14px', fontSize: 12, color: 'var(--red)', cursor: 'pointer', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
+              📷 Scan rapide
+            </button>
           </div>
           {alertesRetour.map(item => {
             const days = daysSince(item.date_achat)
@@ -382,6 +392,7 @@ export default function Dashboard() {
         <ItemModal item={editItem} categories={categories} onSave={handleSave}
           onClose={() => { setShowModal(false); setEditItem(null) }} />
       )}
+      {showScan && <ScanModal onClose={() => setShowScan(false)} />}
     </div>
   )
 }
