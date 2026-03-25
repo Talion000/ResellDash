@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip } from 'chart.js'
 import { useItemsContext } from '../hooks/ItemsContext'
@@ -10,12 +11,15 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip)
 const EXCLUDED = ['Remboursé', 'En retour']
 
 export default function Ventes() {
+  const [searchParams] = useSearchParams()
+  const monthFilter = searchParams.get('month') || ''
   const { items, categories, ventesUnitaires, updateItem, addItem } = useItemsContext()
   const [editItem, setEditItem] = useState(null)
   const [showModal, setShowModal] = useState(false)
 
   // Items vendus (normaux) + lots avec au moins 1 vente
   const sold = useMemo(() => items.filter(i => {
+    if (monthFilter && !i.quantite_mode && !i.date_vente?.startsWith(monthFilter)) return false
     if (EXCLUDED.includes(i.statut)) return false
     if (i.quantite_mode) return ventesUnitaires.some(v => v.item_id === i.id)
     return i.statut === 'Vendu' && i.prix_vente
@@ -102,7 +106,17 @@ export default function Ventes() {
 
   return (
     <div style={{ padding: '20px 28px' }}>
-      <div style={{ fontSize: 18, fontWeight: 500, letterSpacing: '-0.3px', marginBottom: 24 }}>Ventes</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+        <div style={{ fontSize: 18, fontWeight: 500, letterSpacing: '-0.3px' }}>Ventes</div>
+        {monthFilter && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ background: 'rgba(34,197,94,0.1)', border: '0.5px solid rgba(34,197,94,0.3)', borderRadius: 20, padding: '3px 12px', fontSize: 12, color: 'var(--g)' }}>
+              {new Date(monthFilter + '-01').toLocaleString('fr-FR', { month: 'long', year: 'numeric' })}
+            </span>
+            <button className="btn-ghost" onClick={() => window.history.back()} style={{ fontSize: 11 }}>← Retour</button>
+          </div>
+        )}
+      </div>
 
       <div className="kpi-grid" style={{ marginBottom: 20 }}>
         <div className="kpi-card">

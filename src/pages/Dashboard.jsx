@@ -244,16 +244,16 @@ export default function Dashboard() {
 
       {/* KPIs */}
       <div className="kpi-grid" style={{ marginBottom: 20 }}>
-        <div className="kpi-card">
-          <div className="kpi-label">CA — {new Date().toLocaleString('fr-FR', {month: 'long'})}</div>
+        <div className="kpi-card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/ventes?month=${currentMonth}`)}>
+          <div className="kpi-label">CA — {new Date().toLocaleString('fr-FR', {month: 'long'})} ↗</div>
           <div className="kpi-value" style={{ color: 'var(--g)', filter: blurNumbers ? 'blur(8px)' : 'none', transition: 'filter 0.2s', userSelect: blurNumbers ? 'none' : 'auto' }}>{fmtEur(totalCA)}</div>
           <div className="kpi-sub">{
             kpiItems.filter(i => !i.quantite_mode && i.date_vente?.startsWith(currentMonth)).length
             + ventesUnitaires.filter(v => (v.date_vente || '').startsWith(currentMonth)).length
           } ventes ce mois</div>
         </div>
-        <div className="kpi-card">
-          <div className="kpi-label">Bénéfice — {new Date().toLocaleString('fr-FR', {month: 'long'})}</div>
+        <div className="kpi-card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/ventes?month=${currentMonth}`)}>
+          <div className="kpi-label">Bénéfice — {new Date().toLocaleString('fr-FR', {month: 'long'})} ↗</div>
           <div className="kpi-value" style={{ color: totalBenef >= 0 ? 'var(--g)' : 'var(--red)', filter: blurNumbers ? 'blur(8px)' : 'none', transition: 'filter 0.2s', userSelect: blurNumbers ? 'none' : 'auto' }}>
             {totalBenef >= 0 ? '+' : ''}{fmtEur(totalBenef)}
           </div>
