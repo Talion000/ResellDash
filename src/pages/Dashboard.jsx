@@ -26,7 +26,12 @@ export default function Dashboard() {
   const [filterPf, setFilterPf] = useState('')
   const [sortOrder, setSortOrder] = useState('recent')
 
+  const currentMonth = new Date().toISOString().slice(0, 7) // YYYY-MM
   const kpiItems = useMemo(() => items.filter(i => !filterCat || i.categorie === filterCat), [items, filterCat])
+  const kpiItemsMonth = useMemo(() => kpiItems.filter(i => {
+    if (i.quantite_mode) return ventesUnitaires.some(v => v.item_id === i.id && (v.date_vente || '').startsWith(currentMonth))
+    return i.date_vente?.startsWith(currentMonth)
+  }), [kpiItems, ventesUnitaires, currentMonth])
   const stockItems = useMemo(() => kpiItems.filter(i => !['Vendu', ...EXCLUDED_STATUTS].includes(i.statut)), [kpiItems])
   const alertItems = useMemo(() => stockItems.filter(i => daysSince(i.date_achat) > 90), [stockItems])
 
@@ -38,15 +43,15 @@ export default function Dashboard() {
     return days >= (DELAI_RETOUR - ALERTE_AVANT) && days < DELAI_RETOUR
   }), [items])
 
-  const totalCA = useMemo(() => kpiItems.filter(i => !EXCLUDED_STATUTS.includes(i.statut)).reduce((s, i) => {
+  const totalCA = useMemo(() => kpiItemsMonth.filter(i => !EXCLUDED_STATUTS.includes(i.statut)).reduce((s, i) => {
     const v = i.quantite_mode ? (lotVenteTotal(i, ventesUnitaires) || 0) : (i.prix_vente || 0)
     return s + v
-  }, 0), [kpiItems, ventesUnitaires])
+  }, 0), [kpiItemsMonth, ventesUnitaires])
 
-  const totalBenef = useMemo(() => kpiItems.filter(i => !EXCLUDED_STATUTS.includes(i.statut)).reduce((s, i) => {
+  const totalBenef = useMemo(() => kpiItemsMonth.filter(i => !EXCLUDED_STATUTS.includes(i.statut)).reduce((s, i) => {
     const p = i.quantite_mode ? (lotProfit(i, ventesUnitaires) || 0) : (profit(i) || 0)
     return s + p
-  }, 0), [kpiItems, ventesUnitaires])
+  }, 0), [kpiItemsMonth, ventesUnitaires])
 
   const totalCharges = useMemo(() => abonnements.filter(a => a.actif).reduce((s, a) => s + a.montant, 0), [abonnements])
   const totalBenefNet = totalBenef - totalCharges
@@ -134,8 +139,14 @@ export default function Dashboard() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ fontSize: 18, fontWeight: 500, letterSpacing: '-0.3px' }}>Dashboard</div>
-          <button onClick={() => setBlurNumbers(b => !b)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, opacity: blurNumbers ? 1 : 0.4, transition: 'opacity 0.15s' }} title={blurNumbers ? 'Afficher les chiffres' : 'Masquer les chiffres'}>
-            {blurNumbers ? '🙈' : '👁'}
+          <button onClick={() => setBlurNumbers(b => !b)}
+            style={{ background: 'var(--bg2)', border: '0.5px solid var(--brd2)', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: blurNumbers ? 'var(--text)' : 'var(--mut)', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12 }}
+            title={blurNumbers ? 'Afficher les chiffres' : 'Masquer les chiffres'}>
+            {blurNumbers
+              ? <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              : <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            }
+            {blurNumbers ? 'Afficher' : 'Masquer'}
           </button>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -217,7 +228,7 @@ export default function Dashboard() {
       {/* KPIs */}
       <div className="kpi-grid" style={{ marginBottom: 20 }}>
         <div className="kpi-card">
-          <div className="kpi-label">CA total</div>
+          <div className="kpi-label">CA — {new Date().toLocaleString('fr-FR', {month: 'long'})}</div>
           <div className="kpi-value" style={{ color: 'var(--g)', filter: blurNumbers ? 'blur(8px)' : 'none', transition: 'filter 0.2s', userSelect: blurNumbers ? 'none' : 'auto' }}>{fmtEur(totalCA)}</div>
           <div className="kpi-sub">{kpiItems.reduce((s, i) => {
             if (i.quantite_mode) return s + ventesUnitaires.filter(v => v.item_id === i.id).length
@@ -225,7 +236,7 @@ export default function Dashboard() {
           }, 0)} ventes</div>
         </div>
         <div className="kpi-card">
-          <div className="kpi-label">Bénéfice net</div>
+          <div className="kpi-label">Bénéfice — {new Date().toLocaleString('fr-FR', {month: 'long'})}</div>
           <div className="kpi-value" style={{ color: totalBenef >= 0 ? 'var(--g)' : 'var(--red)', filter: blurNumbers ? 'blur(8px)' : 'none', transition: 'filter 0.2s', userSelect: blurNumbers ? 'none' : 'auto' }}>
             {totalBenef >= 0 ? '+' : ''}{fmtEur(totalBenef)}
           </div>

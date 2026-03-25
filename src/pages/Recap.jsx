@@ -116,6 +116,17 @@ export default function Recap() {
     return { months, totals, roi: totals.achats > 0 ? (totals.benef / totals.achats) * 100 : 0 }
   }, [items, selectedYear])
 
+  const allTimeData = useMemo(() => {
+    const sold = items.filter(i => i.statut === 'Vendu' && i.prix_vente)
+    const bought = items
+    const totalCA = sold.reduce((s, i) => s + (i.prix_vente || 0), 0)
+    const totalAchats = bought.reduce((s, i) => s + (i.prix_achat || 0), 0)
+    const totalBenef = sold.reduce((s, i) => s + (profit(i) || 0), 0)
+    const totalVentes = sold.length
+    const roi = totalAchats > 0 ? (totalBenef / totalAchats) * 100 : 0
+    return { totalCA, totalAchats, totalBenef, totalVentes, roi }
+  }, [items])
+
   const exportCSV = () => {
     const rows = [
       ['Mois', 'Achats (€)', 'CA (€)', 'Bénéfice (€)', 'Nb ventes'],
@@ -185,6 +196,26 @@ export default function Recap() {
         </div>
       )}
 
+      {/* Totaux toutes années */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 11, color: 'var(--mut)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 10 }}>Depuis le début</div>
+        <div className="kpi-grid">
+          {[
+            { label: 'CA total', val: fmtEur(allTimeData.totalCA), sub: `${allTimeData.totalVentes} ventes`, color: 'var(--g)' },
+            { label: 'Bénéfice total', val: (allTimeData.totalBenef >= 0 ? '+' : '') + fmtEur(allTimeData.totalBenef), sub: fmtPct(allTimeData.roi) + ' ROI', color: allTimeData.totalBenef >= 0 ? 'var(--g)' : 'var(--red)' },
+            { label: 'Total achats', val: fmtEur(allTimeData.totalAchats), sub: 'toutes dépenses', color: 'var(--b)' },
+            { label: 'Années actives', val: years.length, sub: years.join(', '), color: 'var(--mut)' },
+          ].map(k => (
+            <div key={k.label} className="kpi-card">
+              <div className="kpi-label">{k.label}</div>
+              <div className="kpi-value" style={{ color: k.color, fontSize: 20 }}>{k.val}</div>
+              <div className="kpi-sub">{k.sub}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ fontSize: 11, color: 'var(--mut)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 10 }}>Détail {selectedYear}</div>
       <div className="kpi-grid" style={{ marginBottom: 20 }}>
         {[
           { label: `CA ${selectedYear}`, val: fmtEur(yearData.totals.ca), sub: `${yearData.totals.nb} ventes`, color: 'var(--g)' },
