@@ -7,7 +7,7 @@ const DRAFT_KEY = 'resell_item_draft'
 
 export default function ItemModal({ item, categories, onSave, onClose }) {
   const isEdit = !!item?.id
-  const { addVenteUnitaire, deleteVenteUnitaire, getVentesForItem } = useItemsContext()
+  const { addVenteUnitaire, deleteVenteUnitaire, getVentesForItem, updateVenteUnitaire } = useItemsContext()
 
   const defaultForm = {
     nom: '', categorie: categories[0]?.name || '', taille_ref: '',
@@ -32,6 +32,7 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
   const [venteForm, setVenteForm] = useState({ prix: '', date: '', notes: '' })
   const [ventesItem, setVentesItem] = useState(isEdit ? getVentesForItem(item?.id) : [])
   const [addingVente, setAddingVente] = useState(false)
+  const [editVente, setEditVente] = useState(null) // {id, prix, date, notes}
   const fileRef = useRef()
 
   useEffect(() => {
@@ -123,6 +124,22 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
   const handleDeleteVente = async (id) => {
     await deleteVenteUnitaire(id)
     setVentesItem(prev => prev.filter(v => v.id !== id))
+  }
+
+  const handleUpdateVente = async () => {
+    if (!editVente || !editVente.prix) return
+    const { error } = await updateVenteUnitaire(editVente.id, {
+      prix_vente: parseFloat(editVente.prix),
+      date_vente: editVente.date || null,
+      notes: editVente.notes || null,
+    })
+    if (!error) {
+      setVentesItem(prev => prev.map(v => v.id === editVente.id
+        ? { ...v, prix_vente: parseFloat(editVente.prix), date_vente: editVente.date || null, notes: editVente.notes || null }
+        : v
+      ))
+      setEditVente(null)
+    }
   }
 
   const nbVendus = ventesItem.length

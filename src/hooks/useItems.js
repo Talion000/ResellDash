@@ -131,6 +131,18 @@ export function useItems() {
     return { data: null, error }
   }
 
+  const updateVenteUnitaire = async (id, updates) => {
+    const { data, error } = await supabase
+      .from('ventes_unitaires')
+      .update(updates)
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .select()
+      .single()
+    if (!error) setVentesUnitaires(prev => prev.map(v => v.id === id ? data : v))
+    return { data, error }
+  }
+
   const deleteVenteUnitaire = async (id) => {
     const { error } = await supabase
       .from('ventes_unitaires')
@@ -180,7 +192,7 @@ export function useItems() {
     items, categories, ventesUnitaires, abonnements, loading,
     addItem, updateItem, deleteItem, duplicateItem,
     addCategory, fetchItems, fetchCategories,
-    addVenteUnitaire, deleteVenteUnitaire, getVentesForItem,
+    addVenteUnitaire, updateVenteUnitaire, deleteVenteUnitaire, getVentesForItem,
     addAbonnement, updateAbonnement, deleteAbonnement,
   }
 }
