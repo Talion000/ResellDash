@@ -13,6 +13,7 @@ const EXCLUDED = ['Remboursé', 'En retour']
 export default function Ventes() {
   const [searchParams] = useSearchParams()
   const monthFilter = searchParams.get('month') || ''
+  const yearFilter = searchParams.get('year') || ''
   const { items, categories, ventesUnitaires, updateItem, addItem } = useItemsContext()
   const [editItem, setEditItem] = useState(null)
   const [showModal, setShowModal] = useState(false)
@@ -20,6 +21,7 @@ export default function Ventes() {
   // Items vendus (normaux) + lots avec au moins 1 vente
   const sold = useMemo(() => items.filter(i => {
     if (monthFilter && !i.quantite_mode && !i.date_vente?.startsWith(monthFilter)) return false
+    if (yearFilter && !i.quantite_mode && !i.date_vente?.startsWith(yearFilter)) return false
     if (EXCLUDED.includes(i.statut)) return false
     if (i.quantite_mode) return ventesUnitaires.some(v => v.item_id === i.id)
     return i.statut === 'Vendu' && i.prix_vente
@@ -108,10 +110,10 @@ export default function Ventes() {
     <div style={{ padding: '20px 28px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
         <div style={{ fontSize: 18, fontWeight: 500, letterSpacing: '-0.3px' }}>Ventes</div>
-        {monthFilter && (
+        {(monthFilter || yearFilter) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ background: 'rgba(34,197,94,0.1)', border: '0.5px solid rgba(34,197,94,0.3)', borderRadius: 20, padding: '3px 12px', fontSize: 12, color: 'var(--g)' }}>
-              {new Date(monthFilter + '-01').toLocaleString('fr-FR', { month: 'long', year: 'numeric' })}
+              {monthFilter ? new Date(monthFilter + '-01').toLocaleString('fr-FR', { month: 'long', year: 'numeric' }) : yearFilter}
             </span>
             <button className="btn-ghost" onClick={() => window.history.back()} style={{ fontSize: 11 }}>← Retour</button>
           </div>

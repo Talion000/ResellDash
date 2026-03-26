@@ -43,32 +43,30 @@ export default function Dashboard() {
     return days >= (DELAI_RETOUR - ALERTE_AVANT) && days < DELAI_RETOUR
   }), [items])
 
+  const currentYear = new Date().getFullYear().toString()
+
   const totalCA = useMemo(() => {
-    // Ventes normales ce mois
     const normal = kpiItems
-      .filter(i => !EXCLUDED_STATUTS.includes(i.statut) && !i.quantite_mode && i.date_vente?.startsWith(currentMonth))
+      .filter(i => !EXCLUDED_STATUTS.includes(i.statut) && !i.quantite_mode && i.date_vente?.startsWith(currentYear))
       .reduce((s, i) => s + (i.prix_vente || 0), 0)
-    // Ventes unitaires des lots ce mois
     const lots = ventesUnitaires
-      .filter(v => (v.date_vente || '').startsWith(currentMonth))
+      .filter(v => (v.date_vente || '').startsWith(currentYear))
       .reduce((s, v) => s + (v.prix_vente || 0), 0)
     return normal + lots
-  }, [kpiItems, ventesUnitaires, currentMonth])
+  }, [kpiItems, ventesUnitaires, currentYear])
 
   const totalBenef = useMemo(() => {
-    // Bénéfice items normaux vendus ce mois
     const normal = kpiItems
-      .filter(i => !EXCLUDED_STATUTS.includes(i.statut) && !i.quantite_mode && i.date_vente?.startsWith(currentMonth))
+      .filter(i => !EXCLUDED_STATUTS.includes(i.statut) && !i.quantite_mode && i.date_vente?.startsWith(currentYear))
       .reduce((s, i) => s + (profit(i) || 0), 0)
-    // Bénéfice ventes unitaires ce mois
     const lots = ventesUnitaires
-      .filter(v => (v.date_vente || '').startsWith(currentMonth))
+      .filter(v => (v.date_vente || '').startsWith(currentYear))
       .reduce((s, v) => {
         const item = kpiItems.find(i => i.id === v.item_id)
         return s + (item ? v.prix_vente - item.prix_achat : 0)
       }, 0)
     return normal + lots
-  }, [kpiItems, ventesUnitaires, currentMonth])
+  }, [kpiItems, ventesUnitaires, currentYear])
 
   const totalCharges = useMemo(() => abonnements.filter(a => a.actif).reduce((s, a) => s + a.montant, 0), [abonnements])
   const totalBenefNet = totalBenef - totalCharges
@@ -244,16 +242,16 @@ export default function Dashboard() {
 
       {/* KPIs */}
       <div className="kpi-grid" style={{ marginBottom: 20 }}>
-        <div className="kpi-card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/ventes?month=${currentMonth}`)}>
-          <div className="kpi-label">CA — {new Date().toLocaleString('fr-FR', {month: 'long'})} ↗</div>
+        <div className="kpi-card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/ventes?year=${currentYear}`)}>
+          <div className="kpi-label">CA {currentYear} ↗</div>
           <div className="kpi-value" style={{ color: 'var(--g)', filter: blurNumbers ? 'blur(8px)' : 'none', transition: 'filter 0.2s', userSelect: blurNumbers ? 'none' : 'auto' }}>{fmtEur(totalCA)}</div>
           <div className="kpi-sub">{
-            kpiItems.filter(i => !i.quantite_mode && i.date_vente?.startsWith(currentMonth)).length
-            + ventesUnitaires.filter(v => (v.date_vente || '').startsWith(currentMonth)).length
-          } ventes ce mois</div>
+            kpiItems.filter(i => !i.quantite_mode && i.date_vente?.startsWith(currentYear)).length
+            + ventesUnitaires.filter(v => (v.date_vente || '').startsWith(currentYear)).length
+          } ventes {currentYear}</div>
         </div>
-        <div className="kpi-card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/ventes?month=${currentMonth}`)}>
-          <div className="kpi-label">Bénéfice — {new Date().toLocaleString('fr-FR', {month: 'long'})} ↗</div>
+        <div className="kpi-card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/ventes?year=${currentYear}`)}>
+          <div className="kpi-label">Bénéfice {currentYear} ↗</div>
           <div className="kpi-value" style={{ color: totalBenef >= 0 ? 'var(--g)' : 'var(--red)', filter: blurNumbers ? 'blur(8px)' : 'none', transition: 'filter 0.2s', userSelect: blurNumbers ? 'none' : 'auto' }}>
             {totalBenef >= 0 ? '+' : ''}{fmtEur(totalBenef)}
           </div>

@@ -20,9 +20,19 @@ export default function Login() {
       const { error } = await signIn(email, password)
       if (error) setError('Email ou mot de passe incorrect.')
     } else {
-      const { error } = await signUp(email, password)
+      const { data, error } = await signUp(email, password)
       if (error) setError(error.message)
-      else setSuccess('Compte créé ! Vérifie ton email pour confirmer.')
+      else {
+        // Register in pending_users
+        if (data?.user) {
+          await fetch('/api/approve-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'register', userId: data.user.id, email })
+          })
+        }
+        setSuccess('Compte créé ! En attente de validation par l'administrateur.')
+      }
     }
     setLoading(false)
   }
