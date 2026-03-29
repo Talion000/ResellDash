@@ -31,7 +31,7 @@ export default function Login() {
             body: JSON.stringify({ action: 'register', userId: data.user.id, email })
           })
         }
-        setSuccess('Compte créé ! En attente de validation par l'administrateur.')
+        setSuccess("Compte créé ! En attente de validation par l'administrateur.")
       }
     }
     setLoading(false)
