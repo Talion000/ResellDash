@@ -139,7 +139,12 @@ export default function Admin() {
                   </td>
                   <td style={{ color: 'var(--mut)' }}>{u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : '—'}</td>
                   <td style={{ color: 'var(--mut)' }}>{u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString('fr-FR') : '—'}</td>
-                  <td>
+                  <td style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    {!ADMIN_EMAILS.includes(u.email) && !isApproved && (
+                      <button className="btn-primary" style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => handleApprove(u.id)}>
+                        ✓ Valider
+                      </button>
+                    )}
                     {!ADMIN_EMAILS.includes(u.email) && (
                       <button className="btn-ghost" style={{ color: 'var(--red)' }} onClick={() => handleReject(u.id, u.email)}>
                         Supprimer

@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useItemsContext } from '../hooks/ItemsContext'
 import ItemModal from '../components/ItemModal'
-import { profit, rendement, fmtEur, fmtPct, daysSince, catBadgeStyle, statusClass, STATUTS, lotAchatTotal, lotVenteTotal, lotProfit, lotValeurStock } from '../lib/utils'
+import { profit, rendement, fmtEur, fmtPct, daysSince, catBadgeStyle, catColor, statusClass, STATUTS, lotAchatTotal, lotVenteTotal, lotProfit, lotValeurStock } from '../lib/utils'
 
 export default function Stock() {
   const { items, categories, ventesUnitaires, loading, addItem, updateItem, deleteItem, duplicateItem } = useItemsContext()
@@ -19,6 +19,7 @@ export default function Stock() {
   const [sortDir, setSortDir] = useState('desc')
   const [selected, setSelected] = useState([])
   const [bulkStatut, setBulkStatut] = useState('')
+  const [viewMode, setViewMode] = useState('table') // 'table' | 'cards'
 
   const plateformes = useMemo(() => [...new Set(items.map(i => i.plateforme_achat).filter(Boolean))], [items])
   const tailles = useMemo(() => [...new Set(items.map(i => i.taille_ref).filter(Boolean))].sort(), [items])
@@ -96,6 +97,21 @@ export default function Stock() {
             <input style={{ background: 'none', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 12, width: '100%' }}
               placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)} />
           </div>
+          {/* Toggle vue */}
+          <div style={{ display: 'flex', background: 'var(--bg2)', border: '0.5px solid var(--brd2)', borderRadius: 8, overflow: 'hidden' }}>
+            <button onClick={() => setViewMode('table')} style={{
+              padding: '7px 12px', border: 'none', cursor: 'pointer', fontSize: 12,
+              background: viewMode === 'table' ? 'var(--bg3)' : 'transparent',
+              color: viewMode === 'table' ? 'var(--text)' : 'var(--mut)',
+              transition: 'all 0.15s'
+            }} title="Vue tableau">☰</button>
+            <button onClick={() => setViewMode('cards')} style={{
+              padding: '7px 12px', border: 'none', cursor: 'pointer', fontSize: 12,
+              background: viewMode === 'cards' ? 'var(--bg3)' : 'transparent',
+              color: viewMode === 'cards' ? 'var(--text)' : 'var(--mut)',
+              transition: 'all 0.15s'
+            }} title="Vue cartes">⊞</button>
+          </div>
           <button className="btn-primary" onClick={() => { setEditItem(null); setShowModal(true) }}>+ Ajouter</button>
         </div>
       </div>
@@ -121,6 +137,7 @@ export default function Stock() {
           <button className="btn-ghost" style={{ marginLeft: 'auto' }} onClick={() => window.history.back()}>← Retour</button>
         </div>
       )}
+
       {/* Bulk actions */}
       {selected.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, padding: '10px 16px', background: 'var(--bg2)', border: '0.5px solid var(--brd2)', borderRadius: 10 }}>
@@ -136,100 +153,183 @@ export default function Stock() {
         </div>
       )}
 
-      <div className="table-container">
-        <div className="table-header">
-          <div style={{ fontSize: 14, fontWeight: 500 }}>Tous les items</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {[
-              { val: filterCat, set: setFilterCat, opts: categories.map(c => c.name), placeholder: 'Catégorie' },
-              { val: filterSt, set: setFilterSt, opts: STATUTS, placeholder: 'Tous statuts' },
-              { val: filterPf, set: setFilterPf, opts: plateformes, placeholder: 'Plateforme' },
-              { val: filterTaille, set: setFilterTaille, opts: tailles, placeholder: 'Taille/Réf' },
-            ].map((f, i) => (
-              <select key={i} className="form-input" style={{ padding: '5px 10px', fontSize: 11, borderRadius: 20, width: 'auto' }}
-                value={f.val} onChange={e => f.set(e.target.value)}>
-                <option value="">{f.placeholder}</option>
-                {f.opts.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-            ))}
-            {(filterCat || filterSt || filterPf || filterTaille) && (
-              <button className="btn-ghost" onClick={() => { setFilterCat(''); setFilterSt(''); setFilterPf(''); setFilterTaille('') }}>Réinitialiser</button>
-            )}
-          </div>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th style={{ width: 36 }}>
-                <input type="checkbox" checked={selected.length === filtered.length && filtered.length > 0}
-                  onChange={toggleAll} style={{ cursor: 'pointer' }} />
-              </th>
-              <th style={{ width: 60 }}>Photo</th>
-              <SortTh col="nom">Item</SortTh>
-              <SortTh col="categorie">Catégorie</SortTh>
-              <th>Taille/Réf</th>
-              <SortTh col="prix_achat">Achat</SortTh>
-              <SortTh col="prix_vente">Vente</SortTh>
-              <th>Profit</th>
-              <th>ROI</th>
-              <SortTh col="date_achat">Date achat</SortTh>
-              <SortTh col="statut">Statut</SortTh>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr><td colSpan={12}>
-                <div className="empty-state">
-                  <div style={{ fontSize: 20 }}>📦</div>
-                  <p>{items.length === 0 ? 'Aucun item. Clique sur "+ Ajouter" !' : 'Aucun résultat.'}</p>
-                </div>
-              </td></tr>
-            ) : filtered.map(item => {
-              const p = profit(item)
-              const r = rendement(item)
-              const days = daysSince(item.date_achat)
-              const isOld = !['Vendu','Remboursé','En retour'].includes(item.statut) && days > 90
-              const isSelected = selected.includes(item.id)
-              const badgeStyle = catBadgeStyle(item.categorie, categories)
-              return (
-                <tr key={item.id} style={{ background: isSelected ? 'rgba(34,197,94,0.04)' : undefined, cursor: 'pointer' }} onClick={() => { setEditItem(item); setShowModal(true) }}>
-                  <td onClick={e => e.stopPropagation()}>
-                    <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(item.id)} style={{ cursor: 'pointer' }} />
-                  </td>
-                  <td>
-                    {item.image_url
-                      ? <img src={item.image_url} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, border: '0.5px solid var(--brd2)' }} />
-                      : <div style={{ width: 40, height: 40, borderRadius: 6, background: 'var(--bg3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>📦</div>
-                    }
-                  </td>
-                  <td>
-                    <div style={{ fontWeight: 500, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.nom}</div>
-                    {item.quantite_mode && <div style={{ fontSize: 10, color: 'var(--b)', marginTop: 2 }}>📦 Lot × {item.quantite_total}</div>}
-                    {isOld && <div style={{ fontSize: 10, color: 'var(--o)' }}>⚠ {days}j en stock</div>}
-                    {item.notes && <div style={{ fontSize: 10, color: 'var(--mut)' }}>{item.notes}</div>}
-                  </td>
-                  <td>
-                    <span className="badge" style={badgeStyle}>{item.categorie}</span>
-                  </td>
-                  <td style={{ color: 'var(--mut)' }}>{item.taille_ref || '—'}</td>
-                  <td style={{ color: 'var(--b)' }}>{fmtEur(item.prix_achat)}</td>
-                  <td style={{ color: item.prix_vente ? 'var(--g)' : 'var(--mut2)' }}>{item.prix_vente ? fmtEur(item.prix_vente) : '—'}</td>
-                  <td>{p != null ? <span className={p >= 0 ? 'profit-pos' : 'profit-neg'}>{p >= 0 ? '+' : ''}{fmtEur(p)}</span> : <span style={{ color: 'var(--mut2)' }}>—</span>}</td>
-                  <td>{r != null ? <span className={r >= 0 ? 'profit-pos' : 'profit-neg'}>{fmtPct(r)}</span> : <span style={{ color: 'var(--mut2)' }}>—</span>}</td>
-                  <td style={{ color: 'var(--mut)' }}>{item.date_achat ? new Date(item.date_achat).toLocaleDateString('fr-FR') : '—'}</td>
-                  <td><span className={`status-badge ${statusClass(item.statut)}`}>{item.statut}</span></td>
-                  <td onClick={e => e.stopPropagation()}>
-                    <button className="btn-ghost" title="Dupliquer" onClick={() => duplicateItem(item)} style={{ marginRight: 4 }}>⧉</button>
-                    <button className="btn-ghost" title="Supprimer" onClick={() => handleDelete(item)} style={{ color: 'var(--red)' }}>✕</button>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+      {/* Filtres */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+        {[
+          { val: filterCat, set: setFilterCat, opts: categories.map(c => c.name), placeholder: 'Catégorie' },
+          { val: filterSt, set: setFilterSt, opts: STATUTS, placeholder: 'Tous statuts' },
+          { val: filterPf, set: setFilterPf, opts: plateformes, placeholder: 'Plateforme' },
+          { val: filterTaille, set: setFilterTaille, opts: tailles, placeholder: 'Taille/Réf' },
+        ].map((f, i) => (
+          <select key={i} className="form-input" style={{ padding: '5px 10px', fontSize: 11, borderRadius: 20, width: 'auto' }}
+            value={f.val} onChange={e => f.set(e.target.value)}>
+            <option value="">{f.placeholder}</option>
+            {f.opts.map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
+        ))}
+        {(filterCat || filterSt || filterPf || filterTaille) && (
+          <button className="btn-ghost" onClick={() => { setFilterCat(''); setFilterSt(''); setFilterPf(''); setFilterTaille('') }}>Réinitialiser</button>
+        )}
       </div>
+
+      {/* VUE CARTES */}
+      {viewMode === 'cards' ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+          {filtered.length === 0 ? (
+            <div className="empty-state" style={{ gridColumn: '1/-1' }}>
+              <div style={{ fontSize: 20 }}>📦</div>
+              <p>{items.length === 0 ? 'Aucun item. Clique sur "+ Ajouter" !' : 'Aucun résultat.'}</p>
+            </div>
+          ) : filtered.map(item => {
+            const days = daysSince(item.date_achat)
+            const isOld = !['Vendu','Remboursé','En retour'].includes(item.statut) && days > 90
+            const p = item.quantite_mode ? lotProfit(item, ventesUnitaires) : profit(item)
+            const valStock = lotValeurStock(item, ventesUnitaires)
+            const badgeStyle = catBadgeStyle(item.categorie, categories)
+            const color = catColor(item.categorie, categories)
+            return (
+              <div key={item.id} onClick={() => { setEditItem(item); setShowModal(true) }}
+                style={{
+                  background: 'var(--bg2)', border: '0.5px solid var(--brd)', borderRadius: 12,
+                  padding: '14px 16px', cursor: 'pointer', transition: 'border-color 0.15s',
+                  position: 'relative', overflow: 'hidden'
+                }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--brd2)'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--brd)'}
+              >
+                {/* Badge jours */}
+                <div style={{
+                  position: 'absolute', top: 12, right: 12,
+                  background: isOld ? 'rgba(249,115,22,0.15)' : 'rgba(255,255,255,0.06)',
+                  color: isOld ? 'var(--o)' : 'var(--mut)',
+                  border: `0.5px solid ${isOld ? 'rgba(249,115,22,0.3)' : 'var(--brd)'}`,
+                  borderRadius: 20, padding: '2px 8px', fontSize: 10, fontWeight: 500
+                }}>
+                  {days}j
+                </div>
+
+                {/* Nom + catégorie */}
+                <div style={{ paddingRight: 40, marginBottom: 8 }}>
+                  <div style={{ fontWeight: 500, fontSize: 13, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.nom}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span className="badge" style={{ ...badgeStyle, fontSize: 10 }}>{item.categorie}</span>
+                    {item.quantite_mode && <span style={{ fontSize: 10, color: 'var(--b)' }}>📦 Lot × {item.quantite_total}</span>}
+                    {item.taille_ref && <span style={{ fontSize: 10, color: 'var(--mut)' }}>{item.taille_ref}</span>}
+                  </div>
+                </div>
+
+                {/* Stats */}
+                <div style={{ display: 'flex', gap: 12, marginBottom: 10, paddingTop: 10, borderTop: '0.5px solid var(--brd)' }}>
+                  <div>
+                    <div style={{ fontSize: 10, color: 'var(--mut)', marginBottom: 2 }}>Achat</div>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--b)' }}>{fmtEur(lotAchatTotal(item))}</div>
+                  </div>
+                  {!['Vendu','Remboursé','En retour'].includes(item.statut) && (
+                    <div>
+                      <div style={{ fontSize: 10, color: 'var(--mut)', marginBottom: 2 }}>En stock</div>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--o)' }}>{fmtEur(valStock)}</div>
+                    </div>
+                  )}
+                  {p != null && (
+                    <div style={{ marginLeft: 'auto' }}>
+                      <div style={{ fontSize: 10, color: 'var(--mut)', marginBottom: 2 }}>Profit</div>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: p >= 0 ? 'var(--g)' : 'var(--red)' }}>
+                        {p >= 0 ? '+' : ''}{fmtEur(p)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Statut + plateforme */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span className={`status-badge ${statusClass(item.statut)}`}>{item.statut}</span>
+                  {item.plateforme_achat && <span style={{ fontSize: 10, color: 'var(--mut)' }}>{item.plateforme_achat}</span>}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        /* VUE TABLEAU */
+        <div className="table-container">
+          <div className="table-header">
+            <div style={{ fontSize: 14, fontWeight: 500 }}>Tous les items</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style={{ width: 36 }}>
+                  <input type="checkbox" checked={selected.length === filtered.length && filtered.length > 0}
+                    onChange={toggleAll} style={{ cursor: 'pointer' }} />
+                </th>
+                <SortTh col="nom">Item</SortTh>
+                <SortTh col="categorie">Catégorie</SortTh>
+                <th>Taille/Réf</th>
+                <SortTh col="prix_achat">Achat</SortTh>
+                <SortTh col="prix_vente">Vente</SortTh>
+                <th>Profit</th>
+                <th>ROI</th>
+                <SortTh col="date_achat">Date achat</SortTh>
+                <SortTh col="statut">Statut</SortTh>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan={11}>
+                  <div className="empty-state">
+                    <div style={{ fontSize: 20 }}>📦</div>
+                    <p>{items.length === 0 ? 'Aucun item. Clique sur "+ Ajouter" !' : 'Aucun résultat.'}</p>
+                  </div>
+                </td></tr>
+              ) : filtered.map(item => {
+                const p = profit(item)
+                const r = rendement(item)
+                const days = daysSince(item.date_achat)
+                const isOld = !['Vendu','Remboursé','En retour'].includes(item.statut) && days > 90
+                const isSelected = selected.includes(item.id)
+                const badgeStyle = catBadgeStyle(item.categorie, categories)
+                return (
+                  <tr key={item.id} style={{ background: isSelected ? 'rgba(34,197,94,0.04)' : undefined, cursor: 'pointer' }} onClick={() => { setEditItem(item); setShowModal(true) }}>
+                    <td onClick={e => e.stopPropagation()}>
+                      <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(item.id)} style={{ cursor: 'pointer' }} />
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div>
+                          <div style={{ fontWeight: 500, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.nom}</div>
+                          {item.quantite_mode && <div style={{ fontSize: 10, color: 'var(--b)', marginTop: 2 }}>📦 Lot × {item.quantite_total}</div>}
+                          {isOld && <div style={{ fontSize: 10, color: 'var(--o)' }}>⚠ {days}j en stock</div>}
+                          {item.notes && <div style={{ fontSize: 10, color: 'var(--mut)' }}>{item.notes}</div>}
+                        </div>
+                        {isOld && (
+                          <span style={{ background: 'rgba(249,115,22,0.15)', color: 'var(--o)', border: '0.5px solid rgba(249,115,22,0.3)', borderRadius: 20, padding: '1px 7px', fontSize: 10, fontWeight: 500, flexShrink: 0 }}>
+                            {days}j
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <span className="badge" style={badgeStyle}>{item.categorie}</span>
+                    </td>
+                    <td style={{ color: 'var(--mut)' }}>{item.taille_ref || '—'}</td>
+                    <td style={{ color: 'var(--b)' }}>{fmtEur(item.prix_achat)}</td>
+                    <td style={{ color: item.prix_vente ? 'var(--g)' : 'var(--mut2)' }}>{item.prix_vente ? fmtEur(item.prix_vente) : '—'}</td>
+                    <td>{p != null ? <span className={p >= 0 ? 'profit-pos' : 'profit-neg'}>{p >= 0 ? '+' : ''}{fmtEur(p)}</span> : <span style={{ color: 'var(--mut2)' }}>—</span>}</td>
+                    <td>{r != null ? <span className={r >= 0 ? 'profit-pos' : 'profit-neg'}>{fmtPct(r)}</span> : <span style={{ color: 'var(--mut2)' }}>—</span>}</td>
+                    <td style={{ color: 'var(--mut)' }}>{item.date_achat ? new Date(item.date_achat).toLocaleDateString('fr-FR') : '—'}</td>
+                    <td><span className={`status-badge ${statusClass(item.statut)}`}>{item.statut}</span></td>
+                    <td onClick={e => e.stopPropagation()}>
+                      <button className="btn-ghost" title="Dupliquer" onClick={() => duplicateItem(item)} style={{ marginRight: 4 }}>⧉</button>
+                      <button className="btn-ghost" title="Supprimer" onClick={() => handleDelete(item)} style={{ color: 'var(--red)' }}>✕</button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {showModal && (
         <ItemModal item={editItem} categories={categories} onSave={handleSave}

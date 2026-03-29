@@ -26,7 +26,7 @@ export default function Dashboard() {
   const [filterPf, setFilterPf] = useState('')
   const [sortOrder, setSortOrder] = useState('recent')
 
-  const currentMonth = new Date().toISOString().slice(0, 7) // YYYY-MM
+  const currentMonth = new Date().toISOString().slice(0, 7)
   const kpiItems = useMemo(() => items.filter(i => !filterCat || i.categorie === filterCat), [items, filterCat])
   const kpiItemsMonth = useMemo(() => kpiItems.filter(i => {
     if (i.quantite_mode) return ventesUnitaires.some(v => v.item_id === i.id && (v.date_vente || '').startsWith(currentMonth))
@@ -35,7 +35,6 @@ export default function Dashboard() {
   const stockItems = useMemo(() => kpiItems.filter(i => !['Vendu', ...EXCLUDED_STATUTS].includes(i.statut)), [kpiItems])
   const alertItems = useMemo(() => stockItems.filter(i => daysSince(i.date_achat) > 90), [stockItems])
 
-  // Alertes retour (J-7 avant 30j)
   const alertesRetour = useMemo(() => items.filter(i => {
     if (['Vendu', 'En retour', 'Remboursé'].includes(i.statut)) return false
     if (!i.date_achat) return false
@@ -273,8 +272,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-
-
       {/* Charts */}
       {monthlyData.labels.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
@@ -326,7 +323,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Table */}
+      {/* Table — sans colonne Photo */}
       <div className="table-container">
         <div className="table-header">
           <div style={{ fontSize: 14, fontWeight: 500 }}>Stock & Historique</div>
@@ -351,7 +348,6 @@ export default function Dashboard() {
         <table>
           <thead>
             <tr>
-              <th style={{ width: 50 }}>Photo</th>
               <th>Item</th><th>Catégorie</th><th>Taille/Réf</th>
               <th>Achat</th><th>Vente</th><th>Profit</th><th>ROI</th>
               <th>Statut</th><th></th>
@@ -359,7 +355,7 @@ export default function Dashboard() {
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={10}>
+              <tr><td colSpan={9}>
                 <div className="empty-state">
                   <div style={{ fontSize: 20 }}>📦</div>
                   <p>{items.length === 0 ? 'Aucun item. Clique sur "+ Ajouter" !' : 'Aucun résultat.'}</p>
@@ -375,13 +371,7 @@ export default function Dashboard() {
               return (
                 <tr key={item.id} onClick={() => { setEditItem(item); setShowModal(true) }} style={{ cursor: 'pointer', background: isRetourAlert ? 'rgba(239,68,68,0.04)' : undefined }}>
                   <td>
-                    {item.image_url
-                      ? <img src={item.image_url} alt="" style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, border: '0.5px solid var(--brd2)' }} />
-                      : <div style={{ width: 36, height: 36, borderRadius: 6, background: 'var(--bg3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>📦</div>
-                    }
-                  </td>
-                  <td>
-                    <div style={{ fontWeight: 500, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.nom}</div>
+                    <div style={{ fontWeight: 500, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.nom}</div>
                     {item.quantite_mode && <div style={{ fontSize: 10, color: 'var(--b)', marginTop: 2 }}>📦 Lot × {item.quantite_total}</div>}
                     {isOld && <div style={{ fontSize: 10, color: 'var(--o)', marginTop: 2 }}>⚠ {days}j en stock</div>}
                     {isRetourAlert && <div style={{ fontSize: 10, color: 'var(--red)', marginTop: 2 }}>🔔 Retour dans {DELAI_RETOUR - days}j !</div>}
