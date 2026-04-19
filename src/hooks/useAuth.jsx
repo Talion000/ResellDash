@@ -20,7 +20,10 @@ export function AuthProvider({ children }) {
 
   const signIn = (email, password) => supabase.auth.signInWithPassword({ email, password })
   const signUp = (email, password) => supabase.auth.signUp({ email, password })
-  const signOut = () => supabase.auth.signOut()
+  const signOut = async () => {
+    await supabase.auth.signOut()
+    localStorage.clear()
+  }
 
   return (
     <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
