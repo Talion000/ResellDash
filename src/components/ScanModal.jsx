@@ -115,7 +115,7 @@ export default function ScanModal({ onClose }) {
                 <div style={{ fontSize: 11, color: 'var(--mut)' }}>Photo ou screenshot de ta confirmation de commande</div>
               </div>
             )}
-            <input ref={fileRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleFile} />
+            <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
             {error && (
               <div style={{ fontSize: 12, color: 'var(--red)', marginBottom: 12, background: 'rgba(239,68,68,0.08)', borderRadius: 8, padding: '10px 12px' }}>
                 {error}

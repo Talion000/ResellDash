@@ -19,8 +19,8 @@ function PrivateRoute({ children }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'check', userId: user.id })
     }).then(r => r.json()).then(d => setApproved(d.status === 'approved'))
-    .catch(() => setApproved(true)) // fallback if API not ready
-  }, [user])
+    .catch(() => setApproved(true))
+  }, [user?.id, user?.email])
 
   if (loading || (user && approved === null)) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'var(--mut)' }}>
