@@ -5,26 +5,25 @@ import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, T
 import { useItemsContext } from '../hooks/ItemsContext'
 import ItemModal from '../components/ItemModal'
 import ScanModal from '../components/ScanModal'
-import { profit, rendement, fmtEur, fmtPct, daysSince, catBadgeStyle, catColor, statusClass, groupByMonth, formatMonth, STATUTS, lotAchatTotal, lotVenteTotal, lotProfit, lotValeurStock } from '../lib/utils'
+import { profit, rendement, fmtEur, fmtPct, daysSince, catBadgeStyle, catColor, statusClass, groupByMonth, formatMonth, lotAchatTotal, lotProfit, lotValeurStock } from '../lib/utils'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend)
 
-const EXCLUDED_STATUTS = ['Remboursé', 'En retour']
+const EXCLUDED_STATUTS = ['Remboursé']
 const DELAI_RETOUR = 30
 const ALERTE_AVANT = 7
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { items, categories, ventesUnitaires, abonnements, loading, addItem, updateItem, deleteItem, duplicateItem } = useItemsContext()
+  const { items, categories, ventesUnitaires, abonnements, loading, addItem, updateItem, deleteItem } = useItemsContext()
   const [showModal, setShowModal] = useState(false)
   const [showScan, setShowScan] = useState(false)
   const [blurNumbers, setBlurNumbers] = useState(true)
   const [editItem, setEditItem] = useState(null)
   const [search, setSearch] = useState('')
   const [filterCat, setFilterCat] = useState('')
-  const [filterSt, setFilterSt] = useState('')
-  const [filterPf, setFilterPf] = useState('')
-  const [sortOrder, setSortOrder] = useState('recent')
+
+
 
   const currentMonth = new Date().toISOString().slice(0, 7)
   const kpiItems = useMemo(() => items.filter(i => !filterCat || i.categorie === filterCat), [items, filterCat])
@@ -36,7 +35,7 @@ export default function Dashboard() {
   const alertItems = useMemo(() => stockItems.filter(i => daysSince(i.date_achat) > 90), [stockItems])
 
   const alertesRetour = useMemo(() => items.filter(i => {
-    if (['Vendu', 'En retour', 'Remboursé'].includes(i.statut)) return false
+    if (['Vendu', 'Remboursé', 'Hold'].includes(i.statut)) return false
     if (!i.date_achat) return false
     const days = daysSince(i.date_achat)
     return days >= (DELAI_RETOUR - ALERTE_AVANT) && days < DELAI_RETOUR
@@ -86,7 +85,17 @@ export default function Dashboard() {
     return Object.entries(map).sort((a, b) => b[1] - a[1])[0]?.[0] || '—'
   }, [kpiItems, ventesUnitaires])
 
-  const plateformes = useMemo(() => [...new Set(items.map(i => i.plateforme_achat).filter(Boolean))], [items])
+  const top5 = useMemo(() => {
+    return items
+      .map(i => ({
+        ...i,
+        _profit: i.quantite_mode ? (lotProfit(i, ventesUnitaires) || 0) : (profit(i) || 0),
+        _roi: i.quantite_mode ? null : rendement(i),
+      }))
+      .filter(i => !EXCLUDED_STATUTS.includes(i.statut) && i._profit !== 0)
+      .sort((a, b) => b._profit - a._profit)
+      .slice(0, 5)
+  }, [items, ventesUnitaires])
 
   const monthlyData = useMemo(() => {
     const grouped = groupByMonth(kpiItems.filter(i => i.statut === 'Vendu' && !i.quantite_mode && i.prix_vente), 'date_vente')
@@ -115,16 +124,8 @@ export default function Dashboard() {
     }
   }, [kpiItems, ventesUnitaires, categories])
 
-  const filtered = useMemo(() => items.filter(i => {
-    if (search && !i.nom.toLowerCase().includes(search.toLowerCase()) && !(i.taille_ref || '').toLowerCase().includes(search.toLowerCase())) return false
-    if (filterCat && i.categorie !== filterCat) return false
-    if (filterSt && i.statut !== filterSt) return false
-    if (filterPf && i.plateforme_achat !== filterPf) return false
-    return true
-  }).sort((a, b) => {
-    const da = a.date_achat || '', db = b.date_achat || ''
-    return sortOrder === 'recent' ? db.localeCompare(da) : da.localeCompare(db)
-  }), [items, search, filterCat, filterSt, filterPf, sortOrder])
+
+
 
   const handleSave = async (data) => {
     if (editItem?.id) return updateItem(editItem.id, data)
@@ -203,11 +204,6 @@ export default function Dashboard() {
             <div style={{ fontWeight: 500, color: 'var(--red)' }}>
               🔔 {alertesRetour.length} retour{alertesRetour.length > 1 ? 's' : ''} à effectuer avant la deadline !
             </div>
-            <button
-              onClick={e => { e.stopPropagation(); setShowScan(true) }}
-              style={{ background: 'rgba(239,68,68,0.15)', border: '0.5px solid rgba(239,68,68,0.4)', borderRadius: 8, padding: '6px 14px', fontSize: 12, color: 'var(--red)', cursor: 'pointer', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
-              📷 Scan rapide
-            </button>
           </div>
           {alertesRetour.map(item => {
             const days = daysSince(item.date_achat)
@@ -323,78 +319,66 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Table — sans colonne Photo */}
+      {/* Top 5 items les plus profitables */}
       <div className="table-container">
         <div className="table-header">
-          <div style={{ fontSize: 14, fontWeight: 500 }}>Stock & Historique</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <select className="form-input" style={{ padding: '5px 10px', fontSize: 11, borderRadius: 20, width: 'auto' }}
-              value={sortOrder} onChange={e => setSortOrder(e.target.value)}>
-              <option value="recent">Plus récent</option>
-              <option value="ancien">Plus ancien</option>
-            </select>
-            {[
-              { val: filterSt, set: setFilterSt, opts: STATUTS, placeholder: 'Tous statuts' },
-              { val: filterPf, set: setFilterPf, opts: plateformes, placeholder: 'Toutes plateformes' },
-            ].map((f, i) => (
-              <select key={i} className="form-input" style={{ padding: '5px 10px', fontSize: 11, borderRadius: 20, width: 'auto' }}
-                value={f.val} onChange={e => f.set(e.target.value)}>
-                <option value="">{f.placeholder}</option>
-                {f.opts.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-            ))}
-          </div>
+          <div style={{ fontSize: 14, fontWeight: 500 }}>🏆 Top 5 — Items les plus profitables</div>
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Item</th><th>Catégorie</th><th>Taille/Réf</th>
-              <th>Achat</th><th>Vente</th><th>Profit</th><th>ROI</th>
-              <th>Statut</th><th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr><td colSpan={9}>
-                <div className="empty-state">
-                  <div style={{ fontSize: 20 }}>📦</div>
-                  <p>{items.length === 0 ? 'Aucun item. Clique sur "+ Ajouter" !' : 'Aucun résultat.'}</p>
-                </div>
-              </td></tr>
-            ) : filtered.map(item => {
-              const p = profit(item)
-              const r = rendement(item)
-              const days = daysSince(item.date_achat)
-              const isOld = !['Vendu', ...EXCLUDED_STATUTS].includes(item.statut) && days > 90
-              const isRetourAlert = alertesRetour.some(a => a.id === item.id)
-              const badgeStyle = catBadgeStyle(item.categorie, categories)
-              return (
-                <tr key={item.id} onClick={() => { setEditItem(item); setShowModal(true) }} style={{ cursor: 'pointer', background: isRetourAlert ? 'rgba(239,68,68,0.04)' : undefined }}>
-                  <td>
-                    <div style={{ fontWeight: 500, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.nom}</div>
-                    {item.quantite_mode && <div style={{ fontSize: 10, color: 'var(--b)', marginTop: 2 }}>📦 Lot × {item.quantite_total}</div>}
-                    {isOld && <div style={{ fontSize: 10, color: 'var(--o)', marginTop: 2 }}>⚠ {days}j en stock</div>}
-                    {isRetourAlert && <div style={{ fontSize: 10, color: 'var(--red)', marginTop: 2 }}>🔔 Retour dans {DELAI_RETOUR - days}j !</div>}
-                    {item.notes && <div style={{ fontSize: 10, color: 'var(--mut)', marginTop: 2 }}>{item.notes}</div>}
-                  </td>
-                  <td><span className="badge" style={badgeStyle}>{item.categorie}</span></td>
-                  <td style={{ color: 'var(--mut)' }}>{item.taille_ref || '—'}</td>
-                  <td style={{ color: 'var(--b)' }}>{fmtEur(lotAchatTotal(item))}</td>
-                  <td style={{ color: item.quantite_mode ? (lotVenteTotal(item, ventesUnitaires) != null ? 'var(--g)' : 'var(--mut2)') : (item.prix_vente ? 'var(--g)' : 'var(--mut2)') }}>
-                    {item.quantite_mode ? (lotVenteTotal(item, ventesUnitaires) != null ? fmtEur(lotVenteTotal(item, ventesUnitaires)) : '—') : (item.prix_vente ? fmtEur(item.prix_vente) : '—')}
-                  </td>
-                  <td>{(() => { const lp = item.quantite_mode ? lotProfit(item, ventesUnitaires) : p; return lp != null && !EXCLUDED_STATUTS.includes(item.statut) ? <span className={lp >= 0 ? 'profit-pos' : 'profit-neg'}>{lp >= 0 ? '+' : ''}{fmtEur(lp)}</span> : <span style={{ color: 'var(--mut2)' }}>—</span> })()}</td>
-                  <td>{r != null && !item.quantite_mode && !EXCLUDED_STATUTS.includes(item.statut) ? <span className={r >= 0 ? 'profit-pos' : 'profit-neg'}>{fmtPct(r)}</span> : <span style={{ color: 'var(--mut2)' }}>—</span>}</td>
-                  <td><span className={`status-badge ${statusClass(item.statut)}`}>{item.statut}</span></td>
-                  <td onClick={e => e.stopPropagation()}>
-                    <button className="btn-ghost" title="Dupliquer" onClick={() => duplicateItem(item)} style={{ marginRight: 4 }}>⧉</button>
-                    <button className="btn-ghost" title="Supprimer" onClick={() => handleDelete(item)} style={{ color: 'var(--red)' }}>✕</button>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+        {top5.length === 0 ? (
+          <div className="empty-state">
+            <div style={{ fontSize: 20 }}>📦</div>
+            <p>Pas encore de données de profit.</p>
+          </div>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Item</th>
+                <th>Catégorie</th>
+                <th>Achat</th>
+                <th>Profit</th>
+                <th>ROI</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              {top5.map((item, idx) => {
+                const badgeStyle = catBadgeStyle(item.categorie, categories)
+                const roi = item._roi
+                return (
+                  <tr key={item.id} style={{ cursor: 'pointer' }} onClick={() => { setEditItem(item); setShowModal(true) }}>
+                    <td>
+                      <span style={{
+                        fontWeight: 700, fontSize: 13,
+                        color: idx === 0 ? '#f59e0b' : idx === 1 ? '#9ca3af' : idx === 2 ? '#cd7c3a' : 'var(--mut)'
+                      }}>
+                        {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 500, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.nom}</div>
+                      {item.quantite_mode && <div style={{ fontSize: 10, color: 'var(--b)', marginTop: 2 }}>📦 Lot × {item.quantite_total}</div>}
+                    </td>
+                    <td><span className="badge" style={badgeStyle}>{item.categorie}</span></td>
+                    <td style={{ color: 'var(--b)' }}>{fmtEur(lotAchatTotal(item))}</td>
+                    <td>
+                      <span className={item._profit >= 0 ? 'profit-pos' : 'profit-neg'}>
+                        {item._profit >= 0 ? '+' : ''}{fmtEur(item._profit)}
+                      </span>
+                    </td>
+                    <td>
+                      {roi != null
+                        ? <span className={roi >= 0 ? 'profit-pos' : 'profit-neg'}>{fmtPct(roi)}</span>
+                        : <span style={{ color: 'var(--mut2)' }}>—</span>}
+                    </td>
+                    <td><span className={`status-badge ${statusClass(item.statut)}`}>{item.statut}</span></td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {showModal && (

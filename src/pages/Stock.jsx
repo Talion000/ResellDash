@@ -28,7 +28,7 @@ export default function Stock() {
     let list = items.filter(i => {
       if (alertMode) {
         const days = daysSince(i.date_achat)
-        return !['Vendu','Remboursé','En retour'].includes(i.statut) && days > 90
+        return !['Vendu','Remboursé','Hold'].includes(i.statut) && days > 90
       }
       if (search && !i.nom.toLowerCase().includes(search.toLowerCase()) && !(i.taille_ref || '').toLowerCase().includes(search.toLowerCase())) return false
       if (filterCat && i.categorie !== filterCat) return false
@@ -121,7 +121,7 @@ export default function Stock() {
         {[
           { label: 'En stock', value: items.filter(i => i.statut === 'En stock').length, color: 'var(--g)' },
           { label: 'Acheté / Livraison', value: items.filter(i => ['Acheté','En livraison'].includes(i.statut)).length, color: 'var(--o)' },
-          { label: 'Valeur totale', value: fmtEur(items.filter(i => !['Vendu','Remboursé','En retour'].includes(i.statut)).reduce((s,i) => s + lotValeurStock(i, ventesUnitaires), 0)), color: 'var(--b)' },
+          { label: 'Valeur totale', value: fmtEur(items.filter(i => !['Vendu','Remboursé','Hold'].includes(i.statut)).reduce((s,i) => s + lotValeurStock(i, ventesUnitaires), 0)), color: 'var(--b)' },
         ].map(k => (
           <div key={k.label} className="kpi-card">
             <div className="kpi-label">{k.label}</div>
@@ -182,7 +182,7 @@ export default function Stock() {
             </div>
           ) : filtered.map(item => {
             const days = daysSince(item.date_achat)
-            const isOld = !['Vendu','Remboursé','En retour'].includes(item.statut) && days > 90
+            const isOld = !['Vendu','Remboursé','Hold'].includes(item.statut) && days > 90
             const p = item.quantite_mode ? lotProfit(item, ventesUnitaires) : profit(item)
             const valStock = lotValeurStock(item, ventesUnitaires)
             const badgeStyle = catBadgeStyle(item.categorie, categories)
@@ -224,7 +224,7 @@ export default function Stock() {
                     <div style={{ fontSize: 10, color: 'var(--mut)', marginBottom: 2 }}>Achat</div>
                     <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--b)' }}>{fmtEur(lotAchatTotal(item))}</div>
                   </div>
-                  {!['Vendu','Remboursé','En retour'].includes(item.statut) && (
+                  {!['Vendu','Remboursé','Hold'].includes(item.statut) && (
                     <div>
                       <div style={{ fontSize: 10, color: 'var(--mut)', marginBottom: 2 }}>En stock</div>
                       <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--o)' }}>{fmtEur(valStock)}</div>
@@ -286,7 +286,7 @@ export default function Stock() {
                 const p = profit(item)
                 const r = rendement(item)
                 const days = daysSince(item.date_achat)
-                const isOld = !['Vendu','Remboursé','En retour'].includes(item.statut) && days > 90
+                const isOld = !['Vendu','Remboursé','Hold'].includes(item.statut) && days > 90
                 const isSelected = selected.includes(item.id)
                 const badgeStyle = catBadgeStyle(item.categorie, categories)
                 return (
