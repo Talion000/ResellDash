@@ -53,7 +53,7 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
     if (k === 'nom') v = v.toUpperCase()
     const updated = { ...f, [k]: v }
     if (k === 'prix_vente' && v && parseFloat(v) > 0 && !updated.quantite_mode &&
-        !['En retour', 'Remboursé'].includes(updated.statut)) {
+        !['Hold', 'Remboursé'].includes(updated.statut)) {
       updated.statut = 'Vendu'
     }
     return updated

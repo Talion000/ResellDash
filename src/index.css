@@ -121,10 +121,12 @@ a { color: inherit; text-decoration: none; }
   border-radius: 50%;
   background: currentColor;
 }
-.status-stock { background: rgba(34,197,94,0.1); color: var(--g); }
-.status-vendu { background: rgba(119,119,119,0.1); color: var(--mut); }
-.status-reserve { background: rgba(249,115,22,0.1); color: var(--o); }
-.status-livraison { background: rgba(59,130,246,0.1); color: var(--b); }
+.status-stock     { background: rgba(59,130,246,0.12);  color: #3b82f6; }   /* Bleu */
+.status-vendu     { background: rgba(34,197,94,0.12);   color: #22c55e; }   /* Vert */
+.status-achete    { background: rgba(234,179,8,0.12);   color: #eab308; }   /* Jaune */
+.status-livraison { background: rgba(234,179,8,0.12);   color: #eab308; }   /* Jaune */
+.status-rembourse { background: rgba(168,85,247,0.12);  color: #a855f7; }   /* Violet */
+.status-hold      { background: rgba(236,72,153,0.12);  color: #ec4899; }   /* Rose */
 
 .profit-pos { color: var(--g); }
 .profit-neg { color: var(--red); }
@@ -282,9 +284,8 @@ tbody tr:hover td { background: var(--bg3); cursor: pointer; }
   .form-grid .full { grid-column: 1; }
 }
 
-.status-retour    { background: rgba(168,85,247,0.1); color: #a855f7; }
-.status-achete    { background: rgba(59,130,246,0.1);  color: var(--b); }
-.status-rembourse { background: rgba(239,68,68,0.1);   color: var(--red); }
+
+
 
 /* Dark checkboxes */
 input[type="checkbox"] {
@@ -316,4 +317,65 @@ input[type="checkbox"]:checked::after {
 }
 input[type="checkbox"]:hover {
   border-color: var(--g);
+}
+
+/* ─── RESPONSIVE MOBILE ─── */
+.desktop-only { display: flex; }
+.mobile-only  { display: none; }
+
+@media (max-width: 768px) {
+  .desktop-only { display: none !important; }
+  .mobile-only  { display: block !important; }
+
+  /* Padding bas pour éviter que le contenu passe sous la bottom nav */
+  .main-content { padding-bottom: 70px; }
+
+  /* Pages — réduire le padding sur mobile */
+  .main-content > div > div[style*="padding: '20px 28px'"],
+  .main-content > div > div {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+
+  /* KPI grid passe en 2 colonnes */
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Charts en colonne */
+  .main-content .card {
+    min-width: 0;
+  }
+
+  /* Table scroll horizontal */
+  .table-container {
+    overflow-x: auto;
+  }
+
+  /* Modal plein écran sur mobile */
+  .modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 100vh !important;
+    border-radius: 16px 16px 0 0 !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    margin: 0 !important;
+    overflow-y: auto;
+  }
+
+  .overlay {
+    align-items: flex-end !important;
+  }
+
+  /* Topbar dashboard — cacher recherche sur mobile */
+  .mobile-hide { display: none !important; }
+
+  /* Boutons topbar plus compacts */
+  .btn-secondary, .btn-primary {
+    padding: 7px 12px !important;
+    font-size: 12px !important;
+  }
 }

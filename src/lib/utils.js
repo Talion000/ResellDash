@@ -60,8 +60,8 @@ export function statusClass(statut) {
     'En livraison': 'status-livraison',
     'En stock':     'status-stock',
     'Vendu':        'status-vendu',
-    'En retour':    'status-retour',
     'Remboursé':    'status-rembourse',
+    'Hold':         'status-hold',
   }
   return map[statut] || 'status-vendu'
 }
@@ -87,7 +87,7 @@ export function formatMonth(yyyymm) {
   return names[idx] + ' ' + y.slice(2)
 }
 
-export const STATUTS = ['Acheté', 'En livraison', 'En stock', 'Vendu', 'En retour', 'Remboursé']
+export const STATUTS = ['Acheté', 'En livraison', 'En stock', 'Vendu', 'Remboursé', 'Hold']
 
 // Calculs pour les lots (quantite_mode)
 export function lotAchatTotal(item) {
