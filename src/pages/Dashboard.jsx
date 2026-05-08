@@ -4,8 +4,9 @@ import { Bar, Doughnut } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend } from 'chart.js'
 import { useItemsContext } from '../hooks/ItemsContext'
 import ItemModal from '../components/ItemModal'
+import FicheModal from '../components/FicheModal'
 import ScanModal from '../components/ScanModal'
-import { profit, rendement, fmtEur, fmtPct, daysSince, catBadgeStyle, catColor, statusClass, groupByMonth, formatMonth, lotAchatTotal, lotProfit, lotValeurStock } from '../lib/utils'
+import { profit, rendement, fmtEur, fmtPct, daysSince, catBadgeStyle, catColor, statusClass, groupByMonth, formatMonth, lotAchatTotal, lotProfit, lotValeurStock, ficheAchatTotal, ficheVenteTotal, ficheProfit, ficheValeurStock } from '../lib/utils'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend)
 
@@ -15,11 +16,12 @@ const ALERTE_AVANT = 7
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { items, categories, ventesUnitaires, abonnements, loading, addItem, updateItem, deleteItem } = useItemsContext()
+  const { items, categories, ventesUnitaires, achats, abonnements, loading, addItem, updateItem, deleteItem } = useItemsContext()
   const [showModal, setShowModal] = useState(false)
   const [showScan, setShowScan] = useState(false)
   const [blurNumbers, setBlurNumbers] = useState(true)
   const [editItem, setEditItem] = useState(null)
+  const [ficheItem, setFicheItem] = useState(null)
   const [search, setSearch] = useState('')
   const [filterCat, setFilterCat] = useState('')
 
@@ -45,31 +47,47 @@ export default function Dashboard() {
 
   const totalCA = useMemo(() => {
     const normal = kpiItems
-      .filter(i => !EXCLUDED_STATUTS.includes(i.statut) && !i.quantite_mode && i.date_vente?.startsWith(currentYear))
+      .filter(i => !EXCLUDED_STATUTS.includes(i.statut) && !i.quantite_mode && !i.fiche_mode && i.date_vente?.startsWith(currentYear))
       .reduce((s, i) => s + (i.prix_vente || 0), 0)
     const lots = ventesUnitaires
-      .filter(v => (v.date_vente || '').startsWith(currentYear))
+      .filter(v => !v.achat_id && (v.date_vente || '').startsWith(currentYear))
       .reduce((s, v) => s + (v.prix_vente || 0), 0)
-    return normal + lots
+    const fiches = ventesUnitaires
+      .filter(v => v.achat_id && (v.date_vente || '').startsWith(currentYear))
+      .reduce((s, v) => s + (v.prix_vente || 0), 0)
+    return normal + lots + fiches
   }, [kpiItems, ventesUnitaires, currentYear])
 
   const totalBenef = useMemo(() => {
     const normal = kpiItems
-      .filter(i => !EXCLUDED_STATUTS.includes(i.statut) && !i.quantite_mode && i.date_vente?.startsWith(currentYear))
+      .filter(i => !EXCLUDED_STATUTS.includes(i.statut) && !i.quantite_mode && !i.fiche_mode && i.date_vente?.startsWith(currentYear))
       .reduce((s, i) => s + (profit(i) || 0), 0)
     const lots = ventesUnitaires
-      .filter(v => (v.date_vente || '').startsWith(currentYear))
+      .filter(v => !v.achat_id && (v.date_vente || '').startsWith(currentYear))
       .reduce((s, v) => {
         const item = kpiItems.find(i => i.id === v.item_id)
         return s + (item ? v.prix_vente - item.prix_achat : 0)
       }, 0)
-    return normal + lots
-  }, [kpiItems, ventesUnitaires, currentYear])
+    const fiches = ventesUnitaires
+      .filter(v => v.achat_id && (v.date_vente || '').startsWith(currentYear))
+      .reduce((s, v) => {
+        const achat = achats.find(a => a.id === v.achat_id)
+        return s + (achat ? (v.prix_vente || 0) - achat.prix_unitaire : 0)
+      }, 0)
+    return normal + lots + fiches
+  }, [kpiItems, ventesUnitaires, achats, currentYear])
 
   const totalCharges = useMemo(() => abonnements.filter(a => a.actif).reduce((s, a) => s + a.montant, 0), [abonnements])
   const totalBenefNet = totalBenef - totalCharges
 
-  const totalStock = useMemo(() => stockItems.reduce((s, i) => s + lotValeurStock(i, ventesUnitaires), 0), [stockItems, ventesUnitaires])
+  const totalStock = useMemo(() => {
+    const normal = stockItems.filter(i => !i.fiche_mode).reduce((s, i) => s + lotValeurStock(i, ventesUnitaires), 0)
+    const fiches = kpiItems.filter(i => i.fiche_mode).reduce((s, i) => {
+      const ia = achats.filter(a => a.item_id === i.id)
+      return s + ficheValeurStock(ia, ventesUnitaires)
+    }, 0)
+    return normal + fiches
+  }, [stockItems, kpiItems, ventesUnitaires, achats])
 
   const avgROI = useMemo(() => {
     const rends = kpiItems.filter(i => !EXCLUDED_STATUTS.includes(i.statut) && !i.quantite_mode).map(i => rendement(i)).filter(r => r != null)
@@ -80,22 +98,34 @@ export default function Dashboard() {
     const map = {}
     kpiItems.filter(i => !EXCLUDED_STATUTS.includes(i.statut)).forEach(i => {
       if (!map[i.categorie]) map[i.categorie] = 0
-      map[i.categorie] += i.quantite_mode ? (lotProfit(i, ventesUnitaires) || 0) : (profit(i) || 0)
+      if (i.fiche_mode) {
+        const ia = achats.filter(a => a.item_id === i.id)
+        map[i.categorie] += ficheProfit(ia, ventesUnitaires) || 0
+      } else {
+        map[i.categorie] += i.quantite_mode ? (lotProfit(i, ventesUnitaires) || 0) : (profit(i) || 0)
+      }
     })
     return Object.entries(map).sort((a, b) => b[1] - a[1])[0]?.[0] || '—'
-  }, [kpiItems, ventesUnitaires])
+  }, [kpiItems, ventesUnitaires, achats])
 
   const top5 = useMemo(() => {
     return items
-      .map(i => ({
-        ...i,
-        _profit: i.quantite_mode ? (lotProfit(i, ventesUnitaires) || 0) : (profit(i) || 0),
-        _roi: i.quantite_mode ? null : rendement(i),
-      }))
+      .map(i => {
+        let _profit, _roi
+        if (i.fiche_mode) {
+          const ia = achats.filter(a => a.item_id === i.id)
+          _profit = ficheProfit(ia, ventesUnitaires) || 0
+          _roi = null
+        } else {
+          _profit = i.quantite_mode ? (lotProfit(i, ventesUnitaires) || 0) : (profit(i) || 0)
+          _roi = i.quantite_mode ? null : rendement(i)
+        }
+        return { ...i, _profit, _roi }
+      })
       .filter(i => !EXCLUDED_STATUTS.includes(i.statut) && i._profit !== 0)
       .sort((a, b) => b._profit - a._profit)
       .slice(0, 5)
-  }, [items, ventesUnitaires])
+  }, [items, ventesUnitaires, achats])
 
   const monthlyData = useMemo(() => {
     const grouped = groupByMonth(kpiItems.filter(i => i.statut === 'Vendu' && !i.quantite_mode && i.prix_vente), 'date_vente')
@@ -347,7 +377,7 @@ export default function Dashboard() {
                 const badgeStyle = catBadgeStyle(item.categorie, categories)
                 const roi = item._roi
                 return (
-                  <tr key={item.id} style={{ cursor: 'pointer' }} onClick={() => { setEditItem(item); setShowModal(true) }}>
+                  <tr key={item.id} style={{ cursor: 'pointer' }} onClick={() => { if (item.fiche_mode) { setFicheItem(item) } else { setEditItem(item); setShowModal(true) } }}>
                     <td>
                       <span style={{
                         fontWeight: 700, fontSize: 13,
@@ -384,6 +414,10 @@ export default function Dashboard() {
       {showModal && (
         <ItemModal item={editItem} categories={categories} onSave={handleSave}
           onClose={() => { setShowModal(false); setEditItem(null) }} />
+      )}
+      {ficheItem && (
+        <FicheModal item={ficheItem} categories={categories} onUpdateItem={updateItem}
+          onClose={() => setFicheItem(null)} />
       )}
       {showScan && <ScanModal onClose={() => setShowScan(false)} />}
     </div>

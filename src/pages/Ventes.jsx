@@ -4,6 +4,7 @@ import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip } from 'chart.js'
 import { useItemsContext } from '../hooks/ItemsContext'
 import ItemModal from '../components/ItemModal'
+import FicheModal from '../components/FicheModal'
 import { profit, rendement, fmtEur, fmtPct, groupByMonth, formatMonth, catBadgeStyle, lotAchatTotal, lotVenteTotal, lotProfit } from '../lib/utils'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip)
@@ -17,6 +18,7 @@ export default function Ventes() {
   const { items, categories, ventesUnitaires, updateItem, addItem } = useItemsContext()
   const [editItem, setEditItem] = useState(null)
   const [showModal, setShowModal] = useState(false)
+  const [ficheItem, setFicheItem] = useState(null)
 
   // Items vendus (normaux) + lots avec au moins 1 vente
   const sold = useMemo(() => items.filter(i => {
@@ -247,7 +249,7 @@ export default function Ventes() {
               const achat = lotAchatTotal(item)
               const vente = item.quantite_mode ? lotVenteTotal(item, ventesUnitaires) : item.prix_vente
               return (
-                <tr key={item.id} style={{ cursor: 'pointer' }} onClick={() => { setEditItem(item); setShowModal(true) }}>
+                <tr key={item.id} style={{ cursor: 'pointer' }} onClick={() => { if (item.fiche_mode) { setFicheItem(item) } else { setEditItem(item); setShowModal(true) } }}>
                   <td>
                     <div style={{ fontWeight: 500 }}>{item.nom}</div>
                     {item.quantite_mode && <div style={{ fontSize: 10, color: 'var(--b)' }}>Lot × {item.quantite_total}</div>}
@@ -269,6 +271,10 @@ export default function Ventes() {
       {showModal && (
         <ItemModal item={editItem} categories={categories} onSave={handleSave}
           onClose={() => { setShowModal(false); setEditItem(null) }} />
+      )}
+      {ficheItem && (
+        <FicheModal item={ficheItem} categories={categories} onUpdateItem={updateItem}
+          onClose={() => setFicheItem(null)} />
       )}
     </div>
   )

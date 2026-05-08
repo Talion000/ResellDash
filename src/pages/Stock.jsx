@@ -2,12 +2,14 @@ import { useState, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useItemsContext } from '../hooks/ItemsContext'
 import ItemModal from '../components/ItemModal'
-import { profit, rendement, fmtEur, fmtPct, daysSince, catBadgeStyle, catColor, statusClass, STATUTS, lotAchatTotal, lotVenteTotal, lotProfit, lotValeurStock } from '../lib/utils'
+import FicheModal from '../components/FicheModal'
+import { profit, rendement, fmtEur, fmtPct, daysSince, catBadgeStyle, catColor, statusClass, STATUTS, lotAchatTotal, lotVenteTotal, lotProfit, lotValeurStock, ficheAchatTotal, ficheVenteTotal, ficheProfit, ficheQuantiteTotal, ficheNbVendus, ficheNbHold, ficheValeurStock } from '../lib/utils'
 
 export default function Stock() {
-  const { items, categories, ventesUnitaires, loading, addItem, updateItem, deleteItem, duplicateItem } = useItemsContext()
+  const { items, categories, ventesUnitaires, achats, loading, addItem, updateItem, deleteItem, duplicateItem } = useItemsContext()
   const [searchParams] = useSearchParams()
   const [showModal, setShowModal] = useState(false)
+  const [ficheItem, setFicheItem] = useState(null)
   const [editItem, setEditItem] = useState(null)
   const [search, setSearch] = useState('')
   const [filterCat, setFilterCat] = useState(searchParams.get('cat') || '')
@@ -188,7 +190,7 @@ export default function Stock() {
             const badgeStyle = catBadgeStyle(item.categorie, categories)
             const color = catColor(item.categorie, categories)
             return (
-              <div key={item.id} onClick={() => { setEditItem(item); setShowModal(true) }}
+              <div key={item.id} onClick={() => { if (item.fiche_mode) { setFicheItem(item) } else { setEditItem(item); setShowModal(true) } }}
                 style={{
                   background: 'var(--bg2)', border: '0.5px solid var(--brd)', borderRadius: 12,
                   padding: '14px 16px', cursor: 'pointer', transition: 'border-color 0.15s',
@@ -213,7 +215,7 @@ export default function Stock() {
                   <div style={{ fontWeight: 500, fontSize: 13, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.nom}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span className="badge" style={{ ...badgeStyle, fontSize: 10 }}>{item.categorie}</span>
-                    {item.quantite_mode && <span style={{ fontSize: 10, color: 'var(--b)' }}>📦 Lot × {item.quantite_total}</span>}
+                    {item.fiche_mode ? <span style={{ fontSize: 10, color: 'var(--b)' }}>📁 Fiche article</span> : item.quantite_mode && <span style={{ fontSize: 10, color: 'var(--b)' }}>📦 Lot × {item.quantite_total}</span>}
                     {item.taille_ref && <span style={{ fontSize: 10, color: 'var(--mut)' }}>{item.taille_ref}</span>}
                   </div>
                 </div>
@@ -290,7 +292,7 @@ export default function Stock() {
                 const isSelected = selected.includes(item.id)
                 const badgeStyle = catBadgeStyle(item.categorie, categories)
                 return (
-                  <tr key={item.id} style={{ background: isSelected ? 'rgba(34,197,94,0.04)' : undefined, cursor: 'pointer' }} onClick={() => { setEditItem(item); setShowModal(true) }}>
+                  <tr key={item.id} style={{ background: isSelected ? 'rgba(34,197,94,0.04)' : undefined, cursor: 'pointer' }} onClick={() => { if (item.fiche_mode) { setFicheItem(item) } else { setEditItem(item); setShowModal(true) } }}>
                     <td onClick={e => e.stopPropagation()}>
                       <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(item.id)} style={{ cursor: 'pointer' }} />
                     </td>
@@ -298,7 +300,7 @@ export default function Stock() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div>
                           <div style={{ fontWeight: 500, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.nom}</div>
-                          {item.quantite_mode && <div style={{ fontSize: 10, color: 'var(--b)', marginTop: 2 }}>📦 Lot × {item.quantite_total}</div>}
+                          {item.fiche_mode ? <div style={{ fontSize: 10, color: 'var(--b)', marginTop: 2 }}>📁 Fiche article</div> : item.quantite_mode && <div style={{ fontSize: 10, color: 'var(--b)', marginTop: 2 }}>📦 Lot × {item.quantite_total}</div>}
                           {isOld && <div style={{ fontSize: 10, color: 'var(--o)' }}>⚠ {days}j en stock</div>}
                           {item.notes && <div style={{ fontSize: 10, color: 'var(--mut)' }}>{item.notes}</div>}
                         </div>
@@ -334,6 +336,10 @@ export default function Stock() {
       {showModal && (
         <ItemModal item={editItem} categories={categories} onSave={handleSave}
           onClose={() => { setShowModal(false); setEditItem(null) }} />
+      )}
+      {ficheItem && (
+        <FicheModal item={ficheItem} categories={categories} onUpdateItem={updateItem}
+          onClose={() => setFicheItem(null)} />
       )}
     </div>
   )
