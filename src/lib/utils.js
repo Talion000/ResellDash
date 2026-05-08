@@ -85,8 +85,6 @@ export function formatMonth(yyyymm) {
 
 export const STATUTS = ['Acheté', 'En livraison', 'En stock', 'Vendu', 'Remboursé', 'Hold']
 
-// ─── Calculs lots (quantite_mode) ─────────────────────────────────────────────
-
 export function lotAchatTotal(item) {
   if (!item.quantite_mode) return item.prix_achat
   return (item.prix_achat || 0) * (item.quantite_total || 1)
@@ -116,68 +114,4 @@ export function lotValeurStock(item, ventesUnitaires) {
   const vendus = lotNbVendus(item, ventesUnitaires)
   const restants = Math.max(0, (item.quantite_total || 1) - vendus)
   return (item.prix_achat || 0) * restants
-}
-
-// ─── Calculs fiche_mode (multi-achats) ────────────────────────────────────────
-
-// Coût total de tous les achats d'une fiche
-export function ficheAchatTotal(itemAchats) {
-  return itemAchats.reduce((s, a) => s + (a.prix_unitaire || 0) * (a.quantite || 1), 0)
-}
-
-// Total des ventes d'une fiche (via ventes_unitaires liées à ses achats)
-export function ficheVenteTotal(itemAchats, ventesUnitaires) {
-  const achatIds = new Set(itemAchats.map(a => a.id))
-  const ventes = ventesUnitaires.filter(v => achatIds.has(v.achat_id))
-  if (ventes.length === 0) return null
-  return ventes.reduce((s, v) => s + (v.prix_vente || 0), 0)
-}
-
-// Profit total d'une fiche
-export function ficheProfit(itemAchats, ventesUnitaires) {
-  const achat = ficheAchatTotal(itemAchats)
-  const vente = ficheVenteTotal(itemAchats, ventesUnitaires)
-  if (vente == null) return null
-  return vente - achat
-}
-
-// Nombre total d'unités dans une fiche
-export function ficheQuantiteTotal(itemAchats) {
-  return itemAchats.reduce((s, a) => s + (a.quantite || 1), 0)
-}
-
-// Nombre d'unités vendues dans une fiche
-export function ficheNbVendus(itemAchats, ventesUnitaires) {
-  const achatIds = new Set(itemAchats.map(a => a.id))
-  return ventesUnitaires.filter(v => achatIds.has(v.achat_id) && (!v.statut || v.statut === 'Vendu')).length
-}
-
-// Nombre d'unités en hold dans une fiche
-export function ficheNbHold(itemAchats, ventesUnitaires) {
-  const achatIds = new Set(itemAchats.map(a => a.id))
-  return ventesUnitaires.filter(v => achatIds.has(v.achat_id) && v.statut === 'Hold').length
-}
-
-// Valeur stock restante d'une fiche
-export function ficheValeurStock(itemAchats, ventesUnitaires) {
-  const achatIds = new Set(itemAchats.map(a => a.id))
-  const ventesActives = ventesUnitaires.filter(v => achatIds.has(v.achat_id))
-  let stockVal = 0
-  for (const achat of itemAchats) {
-    const utilisees = ventesActives.filter(v => v.achat_id === achat.id).length
-    const restantes = Math.max(0, (achat.quantite || 1) - utilisees)
-    stockVal += restantes * (achat.prix_unitaire || 0)
-  }
-  return stockVal
-}
-
-// Ventes d'un achat spécifique
-export function ventesForAchat(achatId, ventesUnitaires) {
-  return ventesUnitaires.filter(v => v.achat_id === achatId)
-}
-
-// Unités restantes (non utilisées) pour un achat
-export function achatRestants(achat, ventesUnitaires) {
-  const utilisees = ventesUnitaires.filter(v => v.achat_id === achat.id).length
-  return Math.max(0, (achat.quantite || 1) - utilisees)
 }

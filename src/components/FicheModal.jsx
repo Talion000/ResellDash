@@ -1,129 +1,59 @@
-import { useState, useEffect } from 'react'
-import { fmtEur, ficheAchatTotal, ficheVenteTotal, ficheProfit, ficheQuantiteTotal, ficheNbVendus, ficheNbHold, achatRestants, ventesForAchat } from '../lib/utils'
+import { useState } from 'react'
+import { fmtEur, lotAchatTotal, lotVenteTotal, lotProfit, lotNbVendus, lotValeurStock } from '../lib/utils'
 import { useItemsContext } from '../hooks/ItemsContext'
+import ItemModal from './ItemModal'
 
 const STATUT_COLORS = {
   'Vendu':     { bg: 'rgba(34,197,94,0.12)',  color: '#22c55e' },
   'Hold':      { bg: 'rgba(251,191,36,0.12)', color: '#f59e0b' },
   'Remboursé': { bg: 'rgba(168,85,247,0.12)', color: '#a855f7' },
+  'En stock':  { bg: 'rgba(59,130,246,0.12)', color: '#3b82f6' },
+  'Acheté':    { bg: 'rgba(59,130,246,0.12)', color: '#3b82f6' },
 }
 
-export default function FicheModal({ item, categories, onUpdateItem, onClose }) {
-  const { achats, ventesUnitaires, addAchat, updateAchat, deleteAchat, addVenteUnitaire, updateVenteUnitaire, deleteVenteUnitaire } = useItemsContext()
+function statusBadge(statut) {
+  const s = STATUT_COLORS[statut] || { bg: 'rgba(136,136,136,0.12)', color: '#888' }
+  return (
+    <span style={{ fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 6, background: s.bg, color: s.color }}>
+      {statut}
+    </span>
+  )
+}
 
-  const itemAchats = achats.filter(a => a.item_id === item.id).sort((a, b) => (b.date_achat || '').localeCompare(a.date_achat || ''))
+export default function FicheModal({ nomArticle, lots, categories, onClose }) {
+  const { ventesUnitaires, addItem, updateItem, deleteItem } = useItemsContext()
+  const [editLot, setEditLot] = useState(null) // item en cours d'édition
+  const [showAddLot, setShowAddLot] = useState(false)
+  const [expandedLot, setExpandedLot] = useState(null)
 
-  // Formulaire nouvel achat
-  const [showAchatForm, setShowAchatForm] = useState(false)
-  const [achatForm, setAchatForm] = useState({ quantite: '', prix_unitaire: '', date_achat: '', plateforme: '', notes: '' })
-  const [savingAchat, setSavingAchat] = useState(false)
+  // KPIs globaux sur tous les lots
+  const totalInvesti = lots.reduce((s, i) => s + lotAchatTotal(i), 0)
+  const totalVente = lots.reduce((s, i) => {
+    const v = lotVenteTotal(i, ventesUnitaires)
+    return s + (v || 0)
+  }, 0)
+  const totalProfit = lots.reduce((s, i) => {
+    const p = lotProfit(i, ventesUnitaires)
+    return s + (p || 0)
+  }, 0)
+  const totalUnites = lots.reduce((s, i) => s + (i.quantite_mode ? (i.quantite_total || 1) : 1), 0)
+  const totalVendus = lots.reduce((s, i) => s + lotNbVendus(i, ventesUnitaires), 0)
+  const totalStock = lots.reduce((s, i) => s + lotValeurStock(i, ventesUnitaires), 0)
 
-  // Formulaire vente par achat
-  const [venteForms, setVenteforms] = useState({}) // achatId -> { prix, date, notes, statut }
-  const [savingVente, setSavingVente] = useState(null)
-
-  // Edition
-  const [editAchat, setEditAchat] = useState(null)
-  const [editVente, setEditVente] = useState(null)
-
-  // Onglet info item
-  const [showEditItem, setShowEditItem] = useState(false)
-  const [itemForm, setItemForm] = useState({ nom: item.nom, categorie: item.categorie, notes: item.notes || '' })
-  const [savingItem, setSavingItem] = useState(false)
-
-  const kpiAchat = ficheAchatTotal(itemAchats)
-  const kpiVente = ficheVenteTotal(itemAchats, ventesUnitaires)
-  const kpiProfit = ficheProfit(itemAchats, ventesUnitaires)
-  const kpiQte = ficheQuantiteTotal(itemAchats)
-  const kpiVendus = ficheNbVendus(itemAchats, ventesUnitaires)
-  const kpiHold = ficheNbHold(itemAchats, ventesUnitaires)
-  const kpiStock = kpiQte - kpiVendus - kpiHold
-
-  const setAchatField = (k, v) => setAchatForm(f => ({ ...f, [k]: v }))
-  const setVenteField = (achatId, k, v) => setVenteforms(f => ({ ...f, [achatId]: { ...(f[achatId] || { prix: '', date: '', notes: '', statut: 'Vendu' }), [k]: v } }))
-  const getVenteForm = (achatId) => venteForms[achatId] || { prix: '', date: '', notes: '', statut: 'Vendu' }
-
-  const handleSaveAchat = async () => {
-    if (!achatForm.prix_unitaire || isNaN(achatForm.prix_unitaire)) return
-    setSavingAchat(true)
-    if (editAchat) {
-      await updateAchat(editAchat.id, {
-        quantite: parseInt(achatForm.quantite) || 1,
-        prix_unitaire: parseFloat(achatForm.prix_unitaire),
-        date_achat: achatForm.date_achat || null,
-        plateforme: achatForm.plateforme || null,
-        notes: achatForm.notes || null,
-      })
-      setEditAchat(null)
-    } else {
-      await addAchat(item.id, achatForm)
+  const handleSaveLot = async (data) => {
+    if (editLot?.id) {
+      const r = await updateItem(editLot.id, data)
+      setEditLot(null)
+      return r
     }
-    setAchatForm({ quantite: '', prix_unitaire: '', date_achat: '', plateforme: '', notes: '' })
-    setShowAchatForm(false)
-    setSavingAchat(false)
+    const r = await addItem({ ...data, nom: nomArticle.toUpperCase() })
+    setShowAddLot(false)
+    return r
   }
 
-  const handleDeleteAchat = async (achatId) => {
-    if (!window.confirm('Supprimer ce lot ? Les ventes rattachées seront aussi supprimées.')) return
-    await deleteAchat(achatId)
-  }
-
-  const startEditAchat = (achat) => {
-    setEditAchat(achat)
-    setAchatForm({
-      quantite: achat.quantite,
-      prix_unitaire: achat.prix_unitaire,
-      date_achat: achat.date_achat || '',
-      plateforme: achat.plateforme || '',
-      notes: achat.notes || '',
-    })
-    setShowAchatForm(true)
-  }
-
-  const handleAddVente = async (achatId) => {
-    const vf = getVenteForm(achatId)
-    const isHold = vf.statut === 'Hold' || vf.statut === 'Remboursé'
-    if (!isHold && (!vf.prix || isNaN(vf.prix))) return
-    setSavingVente(achatId)
-    await addVenteUnitaire(
-      item.id,
-      isHold ? null : parseFloat(vf.prix),
-      vf.date || null,
-      vf.notes || null,
-      achatId,
-    )
-    // Update statut si Hold/Remboursé
-    if (isHold) {
-      // On passe le statut dans notes pour l'instant (hack simple)
-      // Mieux : on met à jour la vente créée juste après
-      const lastAdded = ventesUnitaires[0] // sera mis à jour par le hook
-      // On remet à jour avec le statut
-      setTimeout(async () => {
-        const { ventesUnitaires: vu } = window.__resellCtx || {}
-      }, 100)
-    }
-    setVenteforms(f => ({ ...f, [achatId]: { prix: '', date: '', notes: '', statut: 'Vendu' } }))
-    setSavingVente(null)
-  }
-
-  const handleDeleteVente = async (venteId) => {
-    await deleteVenteUnitaire(venteId)
-  }
-
-  const handleSaveItem = async () => {
-    setSavingItem(true)
-    await onUpdateItem(item.id, { nom: itemForm.nom.toUpperCase(), categorie: itemForm.categorie, notes: itemForm.notes || null })
-    setSavingItem(false)
-    setShowEditItem(false)
-  }
-
-  const statusBadge = (statut) => {
-    const s = STATUT_COLORS[statut] || { bg: 'rgba(34,197,94,0.12)', color: '#22c55e' }
-    return (
-      <span style={{ fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 6, background: s.bg, color: s.color }}>
-        {statut || 'Vendu'}
-      </span>
-    )
+  const handleDeleteLot = async (item) => {
+    if (!window.confirm(`Supprimer ce lot (${item.quantite_mode ? item.quantite_total + ' × ' : ''}${fmtEur(item.prix_achat)}) ?`)) return
+    await deleteItem(item.id)
   }
 
   return (
@@ -131,217 +61,129 @@ export default function FicheModal({ item, categories, onUpdateItem, onClose }) 
       <div className="modal" style={{ maxWidth: 620, maxHeight: '90vh', overflowY: 'auto' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
           <div>
-            {showEditItem ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <input className="form-input" value={itemForm.nom} onChange={e => setItemForm(f => ({ ...f, nom: e.target.value.toUpperCase() }))} style={{ fontSize: 16, fontWeight: 500 }} />
-                <select className="form-input" value={itemForm.categorie} onChange={e => setItemForm(f => ({ ...f, categorie: e.target.value }))}>
-                  {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                </select>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="btn-primary" style={{ fontSize: 12 }} onClick={handleSaveItem} disabled={savingItem}>{savingItem ? '...' : 'Sauvegarder'}</button>
-                  <button className="btn-secondary" style={{ fontSize: 12 }} onClick={() => setShowEditItem(false)}>Annuler</button>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <div style={{ fontSize: 17, fontWeight: 500, color: 'var(--text)', marginBottom: 4 }}>{item.nom}</div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <span className="badge" style={{ background: 'var(--bg3)', color: 'var(--mut)', fontSize: 11 }}>{item.categorie}</span>
-                  <span style={{ fontSize: 11, color: 'var(--mut)' }}>· {kpiQte} unités</span>
-                  <button className="btn-ghost" style={{ fontSize: 11 }} onClick={() => setShowEditItem(true)}>✎ Modifier</button>
-                </div>
-              </div>
-            )}
+            <div style={{ fontSize: 17, fontWeight: 500 }}>{nomArticle}</div>
+            <div style={{ fontSize: 12, color: 'var(--mut)', marginTop: 3 }}>
+              {lots.length} lot{lots.length > 1 ? 's' : ''} · {totalUnites} unités
+            </div>
           </div>
-          <button className="btn-ghost" onClick={onClose} style={{ fontSize: 18, lineHeight: 1 }}>✕</button>
+          <button className="btn-ghost" onClick={onClose} style={{ fontSize: 18 }}>✕</button>
         </div>
 
         {/* KPIs */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 18 }}>
           {[
-            { label: 'Investi', val: fmtEur(kpiAchat), color: 'var(--b)' },
-            { label: 'CA généré', val: kpiVente != null ? fmtEur(kpiVente) : '—', color: 'var(--g)' },
-            { label: 'Bénéfice', val: kpiProfit != null ? (kpiProfit >= 0 ? '+' : '') + fmtEur(kpiProfit) : '—', color: kpiProfit >= 0 ? 'var(--g)' : 'var(--red)' },
-            { label: `${kpiVendus}V · ${kpiHold}H · ${kpiStock}S`, val: `${kpiQte} unités`, color: 'var(--text)' },
+            { label: 'Investi', val: fmtEur(totalInvesti), color: 'var(--b)' },
+            { label: 'CA généré', val: totalVente > 0 ? fmtEur(totalVente) : '—', color: 'var(--g)' },
+            { label: 'Bénéfice', val: totalVente > 0 ? (totalProfit >= 0 ? '+' : '') + fmtEur(totalProfit) : '—', color: totalProfit >= 0 ? 'var(--g)' : 'var(--red)' },
+            { label: `${totalVendus}V · ${totalUnites - totalVendus}R`, val: fmtEur(totalStock) + ' stock', color: 'var(--text)' },
           ].map(k => (
             <div key={k.label} style={{ background: 'var(--bg3)', borderRadius: 8, padding: '10px 12px' }}>
               <div style={{ fontSize: 10, color: 'var(--mut)', marginBottom: 3 }}>{k.label}</div>
-              <div style={{ fontSize: 15, fontWeight: 500, color: k.color }}>{k.val}</div>
+              <div style={{ fontSize: 14, fontWeight: 500, color: k.color }}>{k.val}</div>
             </div>
           ))}
         </div>
 
-        {/* Bouton ajouter achat */}
-        {!showAchatForm && (
-          <button className="btn-primary" style={{ width: '100%', justifyContent: 'center', marginBottom: 16 }}
-            onClick={() => { setEditAchat(null); setAchatForm({ quantite: '', prix_unitaire: '', date_achat: '', plateforme: '', notes: '' }); setShowAchatForm(true) }}>
-            + Ajouter un achat
-          </button>
-        )}
+        {/* Bouton ajouter lot */}
+        <button className="btn-primary" style={{ width: '100%', justifyContent: 'center', marginBottom: 16 }}
+          onClick={() => { setShowAddLot(true); setEditLot(null) }}>
+          + Ajouter un lot
+        </button>
 
-        {/* Formulaire achat */}
-        {showAchatForm && (
-          <div style={{ background: 'var(--bg3)', borderRadius: 10, padding: 14, marginBottom: 16 }}>
-            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 10 }}>
-              {editAchat ? '✎ Modifier le lot' : '+ Nouveau lot d\'achat'}
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <div className="form-group">
-                <label className="form-label">Quantité *</label>
-                <input className="form-input" type="number" min="1" placeholder="10"
-                  value={achatForm.quantite} onChange={e => setAchatField('quantite', e.target.value)} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Prix unitaire (€) *</label>
-                <input className="form-input" type="number" step="0.01" placeholder="35.00"
-                  value={achatForm.prix_unitaire} onChange={e => setAchatField('prix_unitaire', e.target.value)} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Date d'achat</label>
-                <input className="form-input" type="date"
-                  value={achatForm.date_achat} onChange={e => setAchatField('date_achat', e.target.value)} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Plateforme</label>
-                <input className="form-input" placeholder="Cultura, Instore..."
-                  value={achatForm.plateforme} onChange={e => setAchatField('plateforme', e.target.value)} />
-              </div>
-              <div className="form-group full" style={{ gridColumn: '1/-1' }}>
-                <label className="form-label">Notes</label>
-                <input className="form-input" placeholder="Infos utiles..."
-                  value={achatForm.notes} onChange={e => setAchatField('notes', e.target.value)} />
-              </div>
-            </div>
-            {achatForm.quantite && achatForm.prix_unitaire && (
-              <div style={{ fontSize: 11, color: 'var(--mut)', marginTop: 6 }}>
-                Coût total : <strong style={{ color: 'var(--b)' }}>{fmtEur(parseFloat(achatForm.prix_unitaire) * parseInt(achatForm.quantite))}</strong>
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-              <button className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}
-                onClick={handleSaveAchat} disabled={savingAchat}>
-                {savingAchat ? 'Enregistrement...' : editAchat ? 'Mettre à jour' : 'Ajouter le lot'}
-              </button>
-              <button className="btn-secondary" onClick={() => { setShowAchatForm(false); setEditAchat(null) }}>Annuler</button>
-            </div>
-          </div>
-        )}
+        {/* Liste des lots */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {lots.map(item => {
+            const ventes = ventesUnitaires.filter(v => v.item_id === item.id)
+            const nbVendus = lotNbVendus(item, ventesUnitaires)
+            const qte = item.quantite_mode ? (item.quantite_total || 1) : 1
+            const restants = Math.max(0, qte - nbVendus)
+            const cout = lotAchatTotal(item)
+            const isExpanded = expandedLot === item.id
 
-        {/* Liste des achats */}
-        {itemAchats.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 32, color: 'var(--mut)', fontSize: 13 }}>
-            Aucun achat enregistré. Commence par ajouter un lot.
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {itemAchats.map(achat => {
-              const ventes = ventesForAchat(achat.id, ventesUnitaires)
-              const restants = achatRestants(achat, ventesUnitaires)
-              const coutAchat = (achat.prix_unitaire || 0) * (achat.quantite || 1)
-              const vf = getVenteForm(achat.id)
-
-              return (
-                <div key={achat.id} style={{ border: '0.5px solid var(--brd2)', borderRadius: 10, overflow: 'hidden' }}>
-                  {/* Header achat */}
-                  <div style={{ background: 'var(--bg3)', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div>
-                      <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>
-                        Lot — {achat.quantite} × {fmtEur(achat.prix_unitaire)}
-                      </span>
-                      <span style={{ fontSize: 11, color: 'var(--mut)', marginLeft: 10 }}>
-                        {achat.date_achat ? new Date(achat.date_achat).toLocaleDateString('fr-FR') : ''}
-                        {achat.plateforme ? ` · ${achat.plateforme}` : ''}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: 12, color: 'var(--mut)' }}>{fmtEur(coutAchat)}</span>
-                      <button className="btn-ghost" style={{ fontSize: 11 }} onClick={() => startEditAchat(achat)}>✎</button>
-                      <button className="btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }} onClick={() => handleDeleteAchat(achat.id)}>✕</button>
+            return (
+              <div key={item.id} style={{ border: '0.5px solid var(--brd2)', borderRadius: 10, overflow: 'hidden' }}>
+                {/* Header lot */}
+                <div style={{ background: 'var(--bg3)', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
+                  onClick={() => setExpandedLot(isExpanded ? null : item.id)}>
+                  <div>
+                    <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>
+                      {item.quantite_mode ? `${qte} × ${fmtEur(item.prix_achat)}` : fmtEur(item.prix_achat)}
+                    </span>
+                    <span style={{ fontSize: 11, color: 'var(--mut)', marginLeft: 10 }}>
+                      {item.date_achat ? new Date(item.date_achat).toLocaleDateString('fr-FR') : ''}
+                      {item.plateforme_achat ? ` · ${item.plateforme_achat}` : ''}
+                    </span>
+                    <div style={{ marginTop: 4, display: 'flex', gap: 6, alignItems: 'center' }}>
+                      {statusBadge(item.statut)}
+                      {item.quantite_mode && (
+                        <span style={{ fontSize: 11, color: 'var(--mut)' }}>
+                          {nbVendus} vendu{nbVendus > 1 ? 's' : ''} · {restants} restant{restants > 1 ? 's' : ''}
+                        </span>
+                      )}
                     </div>
                   </div>
-
-                  {/* Unités vendues */}
-                  <div style={{ padding: '10px 14px' }}>
-                    {ventes.length > 0 && (
-                      <div style={{ marginBottom: restants > 0 ? 12 : 0 }}>
-                        {ventes.map((v, idx) => (
-                          <div key={v.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: idx < ventes.length - 1 ? '0.5px solid var(--brd)' : 'none' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              {statusBadge(v.statut || 'Vendu')}
-                              {v.prix_vente && <span style={{ fontSize: 13, color: 'var(--g)', fontWeight: 500 }}>→ {fmtEur(v.prix_vente)}</span>}
-                              {v.date_vente && <span style={{ fontSize: 11, color: 'var(--mut)' }}>{new Date(v.date_vente).toLocaleDateString('fr-FR')}</span>}
-                              {v.notes && <span style={{ fontSize: 11, color: 'var(--mut)' }}>{v.notes}</span>}
-                            </div>
-                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                              {v.prix_vente && (
-                                <span style={{ fontSize: 11, color: v.prix_vente - achat.prix_unitaire >= 0 ? 'var(--g)' : 'var(--red)' }}>
-                                  {v.prix_vente - achat.prix_unitaire >= 0 ? '+' : ''}{fmtEur(v.prix_vente - achat.prix_unitaire)}
-                                </span>
-                              )}
-                              <button className="btn-ghost" style={{ color: 'var(--red)', fontSize: 11 }} onClick={() => handleDeleteVente(v.id)}>✕</button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Formulaire ajout vente si restants > 0 */}
-                    {restants > 0 && (
-                      <div style={{ background: 'var(--bg2)', borderRadius: 8, padding: 12 }}>
-                        <div style={{ fontSize: 11, color: 'var(--mut)', marginBottom: 8 }}>
-                          {restants} unité{restants > 1 ? 's' : ''} disponible{restants > 1 ? 's' : ''}
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
-                          <div>
-                            <label className="form-label">Statut</label>
-                            <select className="form-input" value={vf.statut} onChange={e => setVenteField(achat.id, 'statut', e.target.value)}>
-                              <option value="Vendu">Vendu</option>
-                              <option value="Hold">Hold</option>
-                              <option value="Remboursé">Remboursé</option>
-                            </select>
-                          </div>
-                          {vf.statut === 'Vendu' && (
-                            <div>
-                              <label className="form-label">Prix vente (€)</label>
-                              <input className="form-input" type="number" step="0.01" placeholder="0.00"
-                                value={vf.prix} onChange={e => setVenteField(achat.id, 'prix', e.target.value)} />
-                            </div>
-                          )}
-                          <div>
-                            <label className="form-label">Date</label>
-                            <input className="form-input" type="date"
-                              value={vf.date} onChange={e => setVenteField(achat.id, 'date', e.target.value)} />
-                          </div>
-                        </div>
-                        <div style={{ marginBottom: 8 }}>
-                          <label className="form-label">Notes</label>
-                          <input className="form-input" placeholder="Plateforme, acheteur..."
-                            value={vf.notes} onChange={e => setVenteField(achat.id, 'notes', e.target.value)} />
-                        </div>
-                        <button className="btn-primary" style={{ width: '100%', justifyContent: 'center', fontSize: 12 }}
-                          onClick={() => handleAddVente(achat.id)}
-                          disabled={savingVente === achat.id || (vf.statut === 'Vendu' && !vf.prix)}>
-                          {savingVente === achat.id ? 'Enregistrement...' : `+ Enregistrer (${vf.statut})`}
-                        </button>
-                      </div>
-                    )}
-
-                    {restants === 0 && ventes.length === 0 && (
-                      <div style={{ fontSize: 12, color: 'var(--mut)', textAlign: 'center', padding: '8px 0' }}>Lot vide</div>
-                    )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 12, color: 'var(--mut)' }}>{fmtEur(cout)}</span>
+                    <button className="btn-ghost" style={{ fontSize: 11 }}
+                      onClick={e => { e.stopPropagation(); setEditLot(item); setShowAddLot(false) }}>✎</button>
+                    <button className="btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
+                      onClick={e => { e.stopPropagation(); handleDeleteLot(item) }}>✕</button>
+                    <span style={{ fontSize: 12, color: 'var(--mut)' }}>{isExpanded ? '▲' : '▼'}</span>
                   </div>
                 </div>
-              )
-            })}
-          </div>
-        )}
+
+                {/* Détail ventes — visible si expanded */}
+                {isExpanded && (
+                  <div style={{ padding: '10px 14px' }}>
+                    {ventes.length === 0 ? (
+                      <div style={{ fontSize: 12, color: 'var(--mut)', textAlign: 'center', padding: '8px 0' }}>
+                        Aucune vente — ouvre le lot pour en ajouter
+                      </div>
+                    ) : (
+                      ventes.map((v, idx) => (
+                        <div key={v.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: idx < ventes.length - 1 ? '0.5px solid var(--brd)' : 'none' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            {statusBadge(v.statut || 'Vendu')}
+                            {v.prix_vente && <span style={{ fontSize: 13, color: 'var(--g)', fontWeight: 500 }}>→ {fmtEur(v.prix_vente)}</span>}
+                            {v.date_vente && <span style={{ fontSize: 11, color: 'var(--mut)' }}>{new Date(v.date_vente).toLocaleDateString('fr-FR')}</span>}
+                            {v.notes && <span style={{ fontSize: 11, color: 'var(--mut)' }}>{v.notes}</span>}
+                          </div>
+                          {v.prix_vente && (
+                            <span style={{ fontSize: 11, color: v.prix_vente - item.prix_achat >= 0 ? 'var(--g)' : 'var(--red)' }}>
+                              {v.prix_vente - item.prix_achat >= 0 ? '+' : ''}{fmtEur(v.prix_vente - item.prix_achat)}
+                            </span>
+                          )}
+                        </div>
+                      ))
+                    )}
+                    {/* Lien pour ouvrir le lot complet */}
+                    <button className="btn-secondary" style={{ width: '100%', justifyContent: 'center', marginTop: 10, fontSize: 12 }}
+                      onClick={() => setEditLot(item)}>
+                      Ouvrir le lot (ajouter ventes / modifier)
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
 
         <div style={{ marginTop: 20 }}>
           <button className="btn-secondary" style={{ width: '100%', justifyContent: 'center' }} onClick={onClose}>Fermer</button>
         </div>
       </div>
+
+      {/* ItemModal pour éditer/ajouter un lot */}
+      {(editLot || showAddLot) && (
+        <ItemModal
+          item={editLot}
+          categories={categories}
+          onSave={handleSaveLot}
+          onClose={() => { setEditLot(null); setShowAddLot(false) }}
+        />
+      )}
     </div>
   )
 }

@@ -3,13 +3,13 @@ import { useSearchParams } from 'react-router-dom'
 import { useItemsContext } from '../hooks/ItemsContext'
 import ItemModal from '../components/ItemModal'
 import FicheModal from '../components/FicheModal'
-import { profit, rendement, fmtEur, fmtPct, daysSince, catBadgeStyle, catColor, statusClass, STATUTS, lotAchatTotal, lotVenteTotal, lotProfit, lotValeurStock, ficheAchatTotal, ficheVenteTotal, ficheProfit, ficheQuantiteTotal, ficheNbVendus, ficheNbHold, ficheValeurStock } from '../lib/utils'
+import { profit, rendement, fmtEur, fmtPct, daysSince, catBadgeStyle, catColor, statusClass, STATUTS, lotAchatTotal, lotVenteTotal, lotProfit, lotValeurStock } from '../lib/utils'
 
 export default function Stock() {
-  const { items, categories, ventesUnitaires, achats, loading, addItem, updateItem, deleteItem, duplicateItem } = useItemsContext()
+  const { items, categories, ventesUnitaires, loading, addItem, updateItem, deleteItem, duplicateItem } = useItemsContext()
   const [searchParams] = useSearchParams()
   const [showModal, setShowModal] = useState(false)
-  const [ficheItem, setFicheItem] = useState(null)
+  const [ficheNom, setFicheNom] = useState(null) // nom article pour ouvrir la fiche
   const [editItem, setEditItem] = useState(null)
   const [search, setSearch] = useState('')
   const [filterCat, setFilterCat] = useState(searchParams.get('cat') || '')
@@ -48,6 +48,30 @@ export default function Stock() {
     })
     return list
   }, [items, search, filterCat, filterSt, filterPf, filterTaille, sortBy, sortDir, alertMode])
+
+  // Regrouper les items quantite_mode avec le même nom en une seule ligne "fiche"
+  const displayRows = useMemo(() => {
+    const seen = new Set()
+    const rows = []
+    for (const item of filtered) {
+      if (!item.quantite_mode) {
+        rows.push({ type: 'item', item })
+        continue
+      }
+      const key = item.nom.trim().toUpperCase()
+      const sameNom = filtered.filter(i => i.quantite_mode && i.nom.trim().toUpperCase() === key)
+      if (sameNom.length > 1) {
+        // Plusieurs lots pour ce nom → 1 ligne fiche
+        if (!seen.has(key)) {
+          seen.add(key)
+          rows.push({ type: 'fiche', nom: key, lots: sameNom, categorie: item.categorie })
+        }
+      } else {
+        rows.push({ type: 'item', item })
+      }
+    }
+    return rows
+  }, [filtered])
 
   const handleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -177,12 +201,59 @@ export default function Stock() {
       {/* VUE CARTES */}
       {viewMode === 'cards' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
-          {filtered.length === 0 ? (
+          {displayRows.length === 0 ? (
             <div className="empty-state" style={{ gridColumn: '1/-1' }}>
               <div style={{ fontSize: 20 }}>📦</div>
               <p>{items.length === 0 ? 'Aucun item. Clique sur "+ Ajouter" !' : 'Aucun résultat.'}</p>
             </div>
-          ) : filtered.map(item => {
+          ) : displayRows.map((row, rowIdx) => {
+            if (row.type === 'fiche') {
+              const { nom, lots, categorie } = row
+              const totalUnites = lots.reduce((s, i) => s + (i.quantite_total || 1), 0)
+              const totalVendus = lots.reduce((s, i) => ventesUnitaires.filter(v => v.item_id === i.id).length + s, 0)
+              const totalInvesti = lots.reduce((s, i) => s + lotAchatTotal(i), 0)
+              const totalProfitVal = lots.reduce((s, i) => s + (lotProfit(i, ventesUnitaires) || 0), 0)
+              const badgeStyle = catBadgeStyle(categorie, categories)
+              const color = catColor(categorie, categories)
+              return (
+                <div key={`fiche-${nom}`} onClick={() => setFicheNom(nom)}
+                  style={{
+                    background: 'var(--bg2)', border: '0.5px solid rgba(99,102,241,0.3)', borderRadius: 12,
+                    padding: '14px 16px', cursor: 'pointer', transition: 'border-color 0.15s',
+                    position: 'relative', overflow: 'hidden'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(99,102,241,0.6)'}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(99,102,241,0.3)'}
+                >
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: color, borderRadius: '12px 12px 0 0' }} />
+                  <div style={{ paddingRight: 40, marginBottom: 8 }}>
+                    <div style={{ fontWeight: 500, fontSize: 13, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nom}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span className="badge" style={badgeStyle}>{categorie}</span>
+                      <span style={{ fontSize: 10, color: '#818cf8' }}>📁 {lots.length} lots</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 10 }}>
+                    <div style={{ background: 'var(--bg3)', borderRadius: 6, padding: '6px 8px' }}>
+                      <div style={{ fontSize: 9, color: 'var(--mut)', marginBottom: 2 }}>INVESTI</div>
+                      <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--b)' }}>{fmtEur(totalInvesti)}</div>
+                    </div>
+                    <div style={{ background: 'var(--bg3)', borderRadius: 6, padding: '6px 8px' }}>
+                      <div style={{ fontSize: 9, color: 'var(--mut)', marginBottom: 2 }}>UNITÉS</div>
+                      <div style={{ fontSize: 12, fontWeight: 500 }}>{totalVendus}/{totalUnites}</div>
+                    </div>
+                    <div style={{ background: 'var(--bg3)', borderRadius: 6, padding: '6px 8px' }}>
+                      <div style={{ fontSize: 9, color: 'var(--mut)', marginBottom: 2 }}>PROFIT</div>
+                      <div style={{ fontSize: 12, fontWeight: 500, color: totalProfitVal >= 0 ? 'var(--g)' : 'var(--red)' }}>
+                        {totalProfitVal >= 0 ? '+' : ''}{fmtEur(totalProfitVal)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            }
+
+            const item = row.item
             const days = daysSince(item.date_achat)
             const isOld = !['Vendu','Remboursé','Hold'].includes(item.statut) && days > 90
             const p = item.quantite_mode ? lotProfit(item, ventesUnitaires) : profit(item)
@@ -190,7 +261,7 @@ export default function Stock() {
             const badgeStyle = catBadgeStyle(item.categorie, categories)
             const color = catColor(item.categorie, categories)
             return (
-              <div key={item.id} onClick={() => { if (item.fiche_mode) { setFicheItem(item) } else { setEditItem(item); setShowModal(true) } }}
+              <div key={item.id} onClick={() => { setEditItem(item); setShowModal(true) }}
                 style={{
                   background: 'var(--bg2)', border: '0.5px solid var(--brd)', borderRadius: 12,
                   padding: '14px 16px', cursor: 'pointer', transition: 'border-color 0.15s',
@@ -215,7 +286,7 @@ export default function Stock() {
                   <div style={{ fontWeight: 500, fontSize: 13, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.nom}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span className="badge" style={{ ...badgeStyle, fontSize: 10 }}>{item.categorie}</span>
-                    {item.fiche_mode ? <span style={{ fontSize: 10, color: 'var(--b)' }}>📁 Fiche article</span> : item.quantite_mode && <span style={{ fontSize: 10, color: 'var(--b)' }}>📦 Lot × {item.quantite_total}</span>}
+                    {item.quantite_mode && <span style={{ fontSize: 10, color: 'var(--b)' }}>📦 Lot × {item.quantite_total}</span>}
                     {item.taille_ref && <span style={{ fontSize: 10, color: 'var(--mut)' }}>{item.taille_ref}</span>}
                   </div>
                 </div>
@@ -277,14 +348,62 @@ export default function Stock() {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {displayRows.length === 0 ? (
                 <tr><td colSpan={11}>
                   <div className="empty-state">
                     <div style={{ fontSize: 20 }}>📦</div>
                     <p>{items.length === 0 ? 'Aucun item. Clique sur "+ Ajouter" !' : 'Aucun résultat.'}</p>
                   </div>
                 </td></tr>
-              ) : filtered.map(item => {
+              ) : displayRows.map((row, rowIdx) => {
+                if (row.type === 'fiche') {
+                  const { nom, lots, categorie } = row
+                  const totalUnites = lots.reduce((s, i) => s + (i.quantite_total || 1), 0)
+                  const totalVendus = lots.reduce((s, i) => {
+                    return s + ventesUnitaires.filter(v => v.item_id === i.id).length
+                  }, 0)
+                  const totalInvesti = lots.reduce((s, i) => s + lotAchatTotal(i), 0)
+                  const totalVenteVal = lots.reduce((s, i) => {
+                    const v = lotVenteTotal(i, ventesUnitaires)
+                    return s + (v || 0)
+                  }, 0)
+                  const totalProfitVal = lots.reduce((s, i) => {
+                    const p = lotProfit(i, ventesUnitaires)
+                    return s + (p || 0)
+                  }, 0)
+                  const badgeStyle = catBadgeStyle(categorie, categories)
+                  return (
+                    <tr key={`fiche-${nom}`} style={{ cursor: 'pointer', background: 'rgba(99,102,241,0.04)' }}
+                      onClick={() => setFicheNom(nom)}>
+                      <td onClick={e => e.stopPropagation()}>
+                        <input type="checkbox" disabled style={{ cursor: 'not-allowed', opacity: 0.3 }} />
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div>
+                            <div style={{ fontWeight: 500, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}>{nom}</div>
+                            <div style={{ fontSize: 10, color: '#818cf8', marginTop: 2 }}>📁 {lots.length} lots · {totalUnites} unités</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td><span className="badge" style={badgeStyle}>{categorie}</span></td>
+                      <td style={{ color: 'var(--mut)' }}>—</td>
+                      <td style={{ color: 'var(--b)' }}>{fmtEur(totalInvesti)}</td>
+                      <td style={{ color: 'var(--g)' }}>{totalVenteVal > 0 ? fmtEur(totalVenteVal) : '—'}</td>
+                      <td>{totalVenteVal > 0 ? <span className={totalProfitVal >= 0 ? 'profit-pos' : 'profit-neg'}>{totalProfitVal >= 0 ? '+' : ''}{fmtEur(totalProfitVal)}</span> : '—'}</td>
+                      <td style={{ color: 'var(--mut)' }}>—</td>
+                      <td style={{ color: 'var(--mut)' }}>—</td>
+                      <td>
+                        <span style={{ fontSize: 11, background: 'rgba(99,102,241,0.12)', color: '#818cf8', borderRadius: 6, padding: '2px 8px' }}>
+                          {totalVendus}/{totalUnites}
+                        </span>
+                      </td>
+                      <td></td>
+                    </tr>
+                  )
+                }
+
+                const item = row.item
                 const p = profit(item)
                 const r = rendement(item)
                 const days = daysSince(item.date_achat)
@@ -292,7 +411,7 @@ export default function Stock() {
                 const isSelected = selected.includes(item.id)
                 const badgeStyle = catBadgeStyle(item.categorie, categories)
                 return (
-                  <tr key={item.id} style={{ background: isSelected ? 'rgba(34,197,94,0.04)' : undefined, cursor: 'pointer' }} onClick={() => { if (item.fiche_mode) { setFicheItem(item) } else { setEditItem(item); setShowModal(true) } }}>
+                  <tr key={item.id} style={{ background: isSelected ? 'rgba(34,197,94,0.04)' : undefined, cursor: 'pointer' }} onClick={() => { setEditItem(item); setShowModal(true) }}>
                     <td onClick={e => e.stopPropagation()}>
                       <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(item.id)} style={{ cursor: 'pointer' }} />
                     </td>
@@ -300,7 +419,7 @@ export default function Stock() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div>
                           <div style={{ fontWeight: 500, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.nom}</div>
-                          {item.fiche_mode ? <div style={{ fontSize: 10, color: 'var(--b)', marginTop: 2 }}>📁 Fiche article</div> : item.quantite_mode && <div style={{ fontSize: 10, color: 'var(--b)', marginTop: 2 }}>📦 Lot × {item.quantite_total}</div>}
+                          {item.quantite_mode && <div style={{ fontSize: 10, color: 'var(--b)', marginTop: 2 }}>📦 Lot × {item.quantite_total}</div>}
                           {isOld && <div style={{ fontSize: 10, color: 'var(--o)' }}>⚠ {days}j en stock</div>}
                           {item.notes && <div style={{ fontSize: 10, color: 'var(--mut)' }}>{item.notes}</div>}
                         </div>
@@ -337,9 +456,13 @@ export default function Stock() {
         <ItemModal item={editItem} categories={categories} onSave={handleSave}
           onClose={() => { setShowModal(false); setEditItem(null) }} />
       )}
-      {ficheItem && (
-        <FicheModal item={ficheItem} categories={categories} onUpdateItem={updateItem}
-          onClose={() => setFicheItem(null)} />
+      {ficheNom && (
+        <FicheModal
+          nomArticle={ficheNom}
+          lots={items.filter(i => i.quantite_mode && i.nom.trim().toUpperCase() === ficheNom)}
+          categories={categories}
+          onClose={() => setFicheNom(null)}
+        />
       )}
     </div>
   )

@@ -13,7 +13,7 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
     nom: '', categorie: categories[0]?.name || '', taille_ref: '',
     prix_achat: '', date_achat: '', plateforme_achat: '',
     prix_vente: '', date_vente: '', statut: 'En stock', notes: '',
-    image_url: null, quantite_mode: false, quantite_total: 1, fiche_mode: false,
+    image_url: null, quantite_mode: false, quantite_total: 1,
   }
 
   const [form, setForm] = useState(() => {
@@ -28,11 +28,11 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
   const [error, setError] = useState('')
   const [imagePreview, setImagePreview] = useState(item?.image_url || null)
   const [uploading, setUploading] = useState(false)
-  const [tab, setTab] = useState('infos')
+  const [tab, setTab] = useState('infos') // 'infos' | 'ventes'
   const [venteForm, setVenteForm] = useState({ prix: '', date: '', notes: '' })
   const [ventesItem, setVentesItem] = useState(isEdit ? getVentesForItem(item?.id) : [])
   const [addingVente, setAddingVente] = useState(false)
-  const [editVente, setEditVente] = useState(null)
+  const [editVente, setEditVente] = useState(null) // {id, prix, date, notes}
   const fileRef = useRef()
 
   useEffect(() => {
@@ -52,14 +52,10 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
   const set = (k, v) => setForm(f => {
     if (k === 'nom') v = v.toUpperCase()
     const updated = { ...f, [k]: v }
-    if (k === 'prix_vente' && v && parseFloat(v) > 0 && !updated.quantite_mode && !updated.fiche_mode &&
+    if (k === 'prix_vente' && v && parseFloat(v) > 0 && !updated.quantite_mode &&
         !['Hold', 'Remboursé'].includes(updated.statut)) {
       updated.statut = 'Vendu'
     }
-    // Si fiche_mode activé, désactiver quantite_mode
-    if (k === 'fiche_mode' && v) updated.quantite_mode = false
-    // Si quantite_mode activé, désactiver fiche_mode
-    if (k === 'quantite_mode' && v) updated.fiche_mode = false
     return updated
   })
 
@@ -96,15 +92,14 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
       plateforme_achat: form.plateforme_achat || null,
       prix_vente: form.prix_vente ? parseFloat(form.prix_vente) : null,
       date_vente: form.date_vente || null,
-      statut: form.fiche_mode ? 'En stock' : form.statut,
+      statut: form.statut,
       notes: form.notes || null,
       image_url: form.image_url || null,
-      quantite_mode: form.fiche_mode ? false : (form.quantite_mode || false),
+      quantite_mode: form.quantite_mode || false,
       quantite_total: form.quantite_mode ? parseInt(form.quantite_total) || 1 : 1,
-      fiche_mode: form.fiche_mode || false,
     }
-    const result = await onSave(data)
-    if (result?.error) { setError(result.error.message); setLoading(false); return }
+    const { error: err } = await onSave(data)
+    if (err) { setError(err.message); setLoading(false); return }
     if (!isEdit) try { localStorage.removeItem(DRAFT_KEY) } catch {}
     onClose()
     setLoading(false)
@@ -117,6 +112,7 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
     if (!error) {
       setVentesItem(prev => [data, ...prev])
       setVenteForm({ prix: '', date: '', notes: '' })
+      // Auto update statut if all sold
       const newCount = ventesItem.length + 1
       if (newCount >= form.quantite_total) {
         await onSave({ ...form, statut: 'Vendu', prix_achat: parseFloat(form.prix_achat), quantite_total: parseInt(form.quantite_total) || 1 })
@@ -167,6 +163,7 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
           {!isEdit && <div style={{ fontSize: 11, color: 'var(--mut)' }}>💾 Brouillon sauvegardé</div>}
         </div>
 
+        {/* Tabs — only show if edit + quantite_mode */}
         {isEdit && form.quantite_mode && (
           <div style={{ display: 'flex', gap: 4, marginBottom: 18, background: 'var(--bg3)', borderRadius: 10, padding: 4 }}>
             <button style={tabStyle('infos')} onClick={() => setTab('infos')}>Infos</button>
@@ -206,30 +203,16 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
                 <input className="form-input" placeholder="ZAL, SNKRS..." value={form.plateforme_achat || ''} onChange={e => set('plateforme_achat', e.target.value)} />
               </div>
 
-              {/* Options lot */}
+              {/* Quantite mode toggle */}
               <div className="form-group full" style={{ borderTop: '0.5px solid var(--brd)', paddingTop: 14 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginBottom: 8 }}>
-                  <input type="checkbox" checked={form.fiche_mode || false} onChange={e => set('fiche_mode', e.target.checked)} />
-                  <span style={{ fontSize: 13, color: 'var(--text)' }}>Fiche article</span>
-                  <span style={{ fontSize: 11, color: 'var(--mut)' }}>— plusieurs lots d'achat avec des prix différents</span>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={form.quantite_mode || false} onChange={e => set('quantite_mode', e.target.checked)} />
+                  <span style={{ fontSize: 13, color: 'var(--text)' }}>Gérer en quantité</span>
+                  <span style={{ fontSize: 11, color: 'var(--mut)' }}>— pour les lots (ETB x10, etc.)</span>
                 </label>
-                {!form.fiche_mode && (
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                    <input type="checkbox" checked={form.quantite_mode || false} onChange={e => set('quantite_mode', e.target.checked)} />
-                    <span style={{ fontSize: 13, color: 'var(--text)' }}>Gérer en quantité</span>
-                    <span style={{ fontSize: 11, color: 'var(--mut)' }}>— lot au même prix (ETB x10, etc.)</span>
-                  </label>
-                )}
               </div>
 
-              {form.fiche_mode ? (
-                <div className="form-group full">
-                  <div style={{ background: 'rgba(99,102,241,0.08)', border: '0.5px solid rgba(99,102,241,0.2)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: 'var(--mut)' }}>
-                    ✦ Mode fiche activé — tu pourras ajouter plusieurs lots d'achat avec des prix et quantités différents depuis la fiche article.
-                    {!isEdit && ' Le premier lot sera créé avec les infos ci-dessus.'}
-                  </div>
-                </div>
-              ) : form.quantite_mode ? (
+              {form.quantite_mode ? (
                 <div className="form-group full">
                   <label className="form-label">Quantité achetée</label>
                   <input className="form-input" type="number" min="1" placeholder="10" value={form.quantite_total || ''} onChange={e => set('quantite_total', e.target.value)} />
@@ -293,11 +276,14 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
 
         {tab === 'ventes' && isEdit && (
           <div>
+            {/* Infos achat */}
             <div style={{ background: 'var(--bg3)', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 12, display: 'flex', gap: 20 }}>
               <span style={{ color: 'var(--mut)' }}>Achat unitaire : <strong style={{ color: 'var(--b)' }}>{fmtEur(parseFloat(form.prix_achat))}</strong></span>
               <span style={{ color: 'var(--mut)' }}>Coût total : <strong style={{ color: 'var(--b)' }}>{fmtEur(coutTotal)}</strong></span>
               {form.plateforme_achat && <span style={{ color: 'var(--mut)' }}>Plateforme : <strong style={{ color: 'var(--text)' }}>{form.plateforme_achat}</strong></span>}
+              {form.date_achat && <span style={{ color: 'var(--mut)' }}>Acheté le : <strong style={{ color: 'var(--text)' }}>{new Date(form.date_achat).toLocaleDateString('fr-FR')}</strong></span>}
             </div>
+            {/* Stats rapides */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 18 }}>
               {[
                 { label: 'Vendus', val: `${nbVendus}/${form.quantite_total}`, color: 'var(--g)' },
@@ -311,6 +297,7 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
               ))}
             </div>
 
+            {/* Add vente form */}
             {nbRestants > 0 && (
               <div style={{ background: 'var(--bg3)', borderRadius: 10, padding: 14, marginBottom: 16 }}>
                 <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 10 }}>+ Enregistrer une vente</div>
@@ -338,11 +325,12 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
               </div>
             )}
 
+            {/* Liste des ventes */}
             {ventesItem.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 24, color: 'var(--mut)', fontSize: 12 }}>Aucune vente enregistrée</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {ventesItem.map((v) => (
+                {ventesItem.map((v, i) => (
                   <div key={v.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg3)', borderRadius: 8, padding: '10px 14px' }}>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--g)' }}>{fmtEur(v.prix_vente)}</div>
