@@ -219,7 +219,7 @@ export default function Ventes() {
       <div className="table-container">
         <div className="table-header">
           <div style={{ fontSize: 14, fontWeight: 500 }}>Historique des ventes</div>
-          <div style={{ fontSize: 12, color: 'var(--mut)' }}>{sold.length} ventes</div>
+          <div style={{ fontSize: 12, color: 'var(--mut)' }}>{sold.reduce((s, i) => s + (i.quantite_mode ? ventesUnitaires.filter(v => v.item_id === i.id).length : 1), 0)} ventes</div>
         </div>
         <table>
           <thead>
@@ -237,31 +237,42 @@ export default function Ventes() {
                   <p>Aucune vente enregistrée pour le moment.</p>
                 </div>
               </td></tr>
-            ) : [...sold].sort((a, b) => {
-              const da = a.quantite_mode ? '' : (a.date_vente || '')
-              const db = b.quantite_mode ? '' : (b.date_vente || '')
-              return db.localeCompare(da)
-            }).map(item => {
-              const p = item.quantite_mode ? lotProfit(item, ventesUnitaires) : profit(item)
-              const r = item.quantite_mode ? null : rendement(item)
-              const achat = lotAchatTotal(item)
-              const vente = item.quantite_mode ? lotVenteTotal(item, ventesUnitaires) : item.prix_vente
-              return (
-                <tr key={item.id} style={{ cursor: 'pointer' }} onClick={() => { setEditItem(item); setShowModal(true) }}>
+            ) : (() => {
+              // Construire la liste plate : 1 ligne par vente unitaire pour les lots, 1 ligne pour les items simples
+              const rows = []
+              sold.forEach(item => {
+                if (item.quantite_mode) {
+                  const ventes = ventesUnitaires.filter(v => v.item_id === item.id)
+                  ventes.forEach(v => {
+                    const p = v.prix_vente != null ? v.prix_vente - item.prix_achat : null
+                    const r = p != null && item.prix_achat ? (p / item.prix_achat) * 100 : null
+                    rows.push({ key: v.id, nom: item.nom, categorie: item.categorie, achat: item.prix_achat, vente: v.prix_vente, profit: p, roi: r, date: v.date_vente, plateforme: item.plateforme_achat, item, isUnit: true })
+                  })
+                } else {
+                  const p = profit(item)
+                  const r = rendement(item)
+                  rows.push({ key: item.id, nom: item.nom, categorie: item.categorie, achat: item.prix_achat, vente: item.prix_vente, profit: p, roi: r, date: item.date_vente, plateforme: item.plateforme_achat, item, isUnit: false })
+                }
+              })
+              return rows.sort((a, b) => (b.date || '').localeCompare(a.date || '')).map(row => (
+                <tr key={row.key} style={{ cursor: 'pointer' }} onClick={() => { setEditItem(row.item); setShowModal(true) }}>
                   <td>
-                    <div style={{ fontWeight: 500 }}>{item.nom}</div>
-                    {item.quantite_mode && <div style={{ fontSize: 10, color: 'var(--b)' }}>Lot × {item.quantite_total}</div>}
+                    <div style={{ fontWeight: 500 }}>{row.nom}</div>
+                    {row.isUnit && <div style={{ fontSize: 10, color: 'var(--b)' }}>Lot · unité</div>}
                   </td>
-                  <td><span className="badge" style={catBadgeStyle(item.categorie, categories)}>{item.categorie}</span></td>
-                  <td style={{ color: 'var(--b)' }}>{fmtEur(achat)}</td>
-                  <td style={{ color: 'var(--g)' }}>{vente ? fmtEur(vente) : '—'}</td>
-                  <td>{p != null ? <span className={p >= 0 ? 'profit-pos' : 'profit-neg'}>{p >= 0 ? '+' : ''}{fmtEur(p)}</span> : '—'}</td>
-                  <td>{r != null ? <span className={r >= 0 ? 'profit-pos' : 'profit-neg'}>{fmtPct(r)}</span> : '—'}</td>
-                  <td style={{ color: 'var(--mut)' }}>{item.date_vente ? new Date(item.date_vente).toLocaleDateString('fr-FR') : '—'}</td>
-                  <td style={{ color: 'var(--mut)' }}>{item.plateforme_achat || '—'}</td>
+                  <td><span className="badge" style={catBadgeStyle(row.categorie, categories)}>{row.categorie}</span></td>
+                  <td style={{ color: 'var(--b)' }}>{fmtEur(row.achat)}</td>
+                  <td style={{ color: 'var(--g)' }}>{row.vente != null ? fmtEur(row.vente) : '—'}</td>
+                  <td>{row.profit != null ? <span className={row.profit >= 0 ? 'profit-pos' : 'profit-neg'}>{row.profit >= 0 ? '+' : ''}{fmtEur(row.profit)}</span> : '—'}</td>
+                  <td>{row.roi != null ? <span className={row.roi >= 0 ? 'profit-pos' : 'profit-neg'}>{fmtPct(row.roi)}</span> : '—'}</td>
+                  <td style={{ color: 'var(--mut)' }}>{row.date ? new Date(row.date).toLocaleDateString('fr-FR') : '—'}</td>
+                  <td style={{ color: 'var(--mut)' }}>{row.plateforme || '—'}</td>
                 </tr>
-              )
-            })}
+              ))
+            })()}
+          </tbody>
+        </table>
+      </div>
           </tbody>
         </table>
       </div>
