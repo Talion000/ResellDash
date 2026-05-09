@@ -10,6 +10,7 @@ import Ventes from '../pages/Ventes'
 import Recap from '../pages/Recap'
 import Admin from '../pages/Admin'
 import Settings from '../pages/Settings'
+import ArticlePage from '../pages/ArticlePage'
 
 function MobileNav() {
   const [showScan, setShowScan] = useState(false)
@@ -81,6 +82,7 @@ export default function Layout() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/stock" element={<Stock />} />
+            <Route path="/article/:nom" element={<ArticlePage />} />
             <Route path="/ventes" element={<Ventes />} />
             <Route path="/recap" element={<Recap />} />
             <Route path="/admin" element={<Admin />} />

@@ -1,15 +1,14 @@
 import { useState, useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useItemsContext } from '../hooks/ItemsContext'
 import ItemModal from '../components/ItemModal'
-import FicheModal from '../components/FicheModal'
 import { profit, rendement, fmtEur, fmtPct, daysSince, catBadgeStyle, catColor, statusClass, STATUTS, lotAchatTotal, lotVenteTotal, lotProfit, lotValeurStock } from '../lib/utils'
 
 export default function Stock() {
   const { items, categories, ventesUnitaires, loading, addItem, updateItem, deleteItem, duplicateItem } = useItemsContext()
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
   const [showModal, setShowModal] = useState(false)
-  const [ficheNom, setFicheNom] = useState(null) // nom article pour ouvrir la fiche
   const [editItem, setEditItem] = useState(null)
   const [search, setSearch] = useState('')
   const [filterCat, setFilterCat] = useState(searchParams.get('cat') || '')
@@ -216,7 +215,7 @@ export default function Stock() {
               const badgeStyle = catBadgeStyle(categorie, categories)
               const color = catColor(categorie, categories)
               return (
-                <div key={`fiche-${nom}`} onClick={() => setFicheNom(nom)}
+                <div key={`fiche-${nom}`} onClick={() => navigate('/article/' + encodeURIComponent(nom))}
                   style={{
                     background: 'var(--bg2)', border: '0.5px solid rgba(99,102,241,0.3)', borderRadius: 12,
                     padding: '14px 16px', cursor: 'pointer', transition: 'border-color 0.15s',
@@ -374,7 +373,7 @@ export default function Stock() {
                   const badgeStyle = catBadgeStyle(categorie, categories)
                   return (
                     <tr key={`fiche-${nom}`} style={{ cursor: 'pointer', background: 'rgba(99,102,241,0.04)' }}
-                      onClick={() => setFicheNom(nom)}>
+                      onClick={() => navigate('/article/' + encodeURIComponent(nom))}>
                       <td onClick={e => e.stopPropagation()}>
                         <input type="checkbox" disabled style={{ cursor: 'not-allowed', opacity: 0.3 }} />
                       </td>
@@ -455,14 +454,6 @@ export default function Stock() {
       {showModal && (
         <ItemModal item={editItem} categories={categories} onSave={handleSave}
           onClose={() => { setShowModal(false); setEditItem(null) }} />
-      )}
-      {ficheNom && (
-        <FicheModal
-          nomArticle={ficheNom}
-          lots={items.filter(i => i.quantite_mode && i.nom.trim().toUpperCase() === ficheNom)}
-          categories={categories}
-          onClose={() => setFicheNom(null)}
-        />
       )}
     </div>
   )
