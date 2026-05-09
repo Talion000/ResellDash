@@ -98,10 +98,11 @@ export function lotVenteTotal(item, ventesUnitaires) {
 }
 
 export function lotProfit(item, ventesUnitaires) {
-  const achat = lotAchatTotal(item)
   const vente = lotVenteTotal(item, ventesUnitaires)
   if (vente == null) return null
-  return vente - achat
+  const nbVendus = lotNbVendus(item, ventesUnitaires)
+  const coutVendus = (item.prix_achat || 0) * nbVendus
+  return vente - coutVendus
 }
 
 export function lotNbVendus(item, ventesUnitaires) {
