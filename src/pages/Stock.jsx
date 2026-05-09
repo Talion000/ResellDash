@@ -58,15 +58,10 @@ export default function Stock() {
         continue
       }
       const key = item.nom.trim().toUpperCase()
-      const sameNom = filtered.filter(i => i.quantite_mode && i.nom.trim().toUpperCase() === key)
-      if (sameNom.length > 1) {
-        // Plusieurs lots pour ce nom → 1 ligne fiche
-        if (!seen.has(key)) {
-          seen.add(key)
-          rows.push({ type: 'fiche', nom: key, lots: sameNom, categorie: item.categorie })
-        }
-      } else {
-        rows.push({ type: 'item', item })
+      if (!seen.has(key)) {
+        seen.add(key)
+        const sameNom = filtered.filter(i => i.quantite_mode && i.nom.trim().toUpperCase() === key)
+        rows.push({ type: 'fiche', nom: key, lots: sameNom, categorie: item.categorie })
       }
     }
     return rows

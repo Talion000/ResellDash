@@ -219,6 +219,11 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
                   <div style={{ fontSize: 11, color: 'var(--mut)', marginTop: 5 }}>
                     Coût total : <strong style={{ color: 'var(--b)' }}>{fmtEur((parseFloat(form.prix_achat) || 0) * (parseInt(form.quantite_total) || 1))}</strong>
                   </div>
+                  {!isEdit && form.nom.trim() && (
+                    <div style={{ marginTop: 8, background: 'rgba(99,102,241,0.08)', border: '0.5px solid rgba(99,102,241,0.2)', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: 'var(--mut)' }}>
+                      📁 Ce lot sera regroupé dans la fiche article <strong style={{ color: '#818cf8' }}>{form.nom.trim().toUpperCase()}</strong>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <>
