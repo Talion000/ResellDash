@@ -273,9 +273,6 @@ export default function Ventes() {
           </tbody>
         </table>
       </div>
-          </tbody>
-        </table>
-      </div>
 
       {showModal && (
         <ItemModal item={editItem} categories={categories} onSave={handleSave}
