@@ -29,7 +29,7 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
   const [imagePreview, setImagePreview] = useState(item?.image_url || null)
   const [uploading, setUploading] = useState(false)
   const [tab, setTab] = useState('infos') // 'infos' | 'ventes'
-  const [venteForm, setVenteForm] = useState({ prix: '', date: '', notes: '' })
+  const [venteForm, setVenteForm] = useState({ prix: '', date: new Date().toISOString().split('T')[0], notes: '' })
   const [ventesItem, setVentesItem] = useState(isEdit ? getVentesForItem(item?.id) : [])
   const [addingVente, setAddingVente] = useState(false)
   const [editVente, setEditVente] = useState(null) // {id, prix, date, notes}
@@ -52,9 +52,14 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
   const set = (k, v) => setForm(f => {
     if (k === 'nom') v = v.toUpperCase()
     const updated = { ...f, [k]: v }
+    const today = new Date().toISOString().split('T')[0]
     if (k === 'prix_vente' && v && parseFloat(v) > 0 && !updated.quantite_mode &&
         !['Hold', 'Remboursé'].includes(updated.statut)) {
       updated.statut = 'Vendu'
+      if (!updated.date_vente) updated.date_vente = today
+    }
+    if (k === 'statut' && v === 'Vendu' && !updated.date_vente) {
+      updated.date_vente = today
     }
     return updated
   })
@@ -111,7 +116,7 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
     const { data, error } = await addVenteUnitaire(item.id, parseFloat(venteForm.prix), venteForm.date || null, venteForm.notes || null)
     if (!error) {
       setVentesItem(prev => [data, ...prev])
-      setVenteForm({ prix: '', date: '', notes: '' })
+      setVenteForm({ prix: '', date: new Date().toISOString().split('T')[0], notes: '' })
       // Auto update statut if all sold
       const newCount = ventesItem.length + 1
       if (newCount >= form.quantite_total) {
