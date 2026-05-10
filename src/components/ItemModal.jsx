@@ -151,7 +151,8 @@ export default function ItemModal({ item, categories, onSave, onClose }) {
   const nbRestants = Math.max(0, (parseInt(form.quantite_total) || 1) - nbVendus)
   const totalVentes = ventesItem.reduce((s, v) => s + v.prix_vente, 0)
   const coutTotal = (parseFloat(form.prix_achat) || 0) * (parseInt(form.quantite_total) || 1)
-  const benefTotal = totalVentes - coutTotal
+  const coutVendus = (parseFloat(form.prix_achat) || 0) * nbVendus
+  const benefTotal = totalVentes - coutVendus
 
   const tabStyle = (t) => ({
     padding: '6px 16px', fontSize: 13, cursor: 'pointer', borderRadius: 8,

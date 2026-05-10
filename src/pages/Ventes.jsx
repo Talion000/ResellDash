@@ -193,35 +193,15 @@ export default function Ventes() {
           </div>
         </div>
       )}
-
-      {pfStats.length > 0 && (
-        <div className="card" style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 14 }}>Performance par plateforme</div>
-          <table style={{ width: '100%' }}>
-            <thead>
-              <tr><th>Plateforme</th><th>Nb ventes</th><th>CA</th><th>Bénéfice</th><th>ROI</th></tr>
-            </thead>
-            <tbody>
-              {pfStats.map(pf => (
-                <tr key={pf.name}>
-                  <td style={{ fontWeight: 500 }}>{pf.name}</td>
-                  <td style={{ color: 'var(--mut)' }}>{pf.nb}</td>
-                  <td style={{ color: 'var(--g)' }}>{fmtEur(pf.ca)}</td>
-                  <td><span className={pf.benef >= 0 ? 'profit-pos' : 'profit-neg'}>{pf.benef >= 0 ? '+' : ''}{fmtEur(pf.benef)}</span></td>
-                  <td><span className={pf.roi >= 0 ? 'profit-pos' : 'profit-neg'}>{fmtPct(pf.roi)}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       )}
 
-      <div className="table-container">
+      <div className="table-container" style={{ marginBottom: 20 }}>
         <div className="table-header">
           <div style={{ fontSize: 14, fontWeight: 500 }}>Historique des ventes</div>
           <div style={{ fontSize: 12, color: 'var(--mut)' }}>{sold.reduce((s, i) => s + (i.quantite_mode ? ventesUnitaires.filter(v => v.item_id === i.id).length : 1), 0)} ventes</div>
         </div>
-        <table>
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <table style={{ minWidth: 600 }}>
           <thead>
             <tr>
               <th>Item</th><th>Catégorie</th><th>Achat</th>
@@ -238,7 +218,6 @@ export default function Ventes() {
                 </div>
               </td></tr>
             ) : (() => {
-              // Construire la liste plate : 1 ligne par vente unitaire pour les lots, 1 ligne pour les items simples
               const rows = []
               sold.forEach(item => {
                 if (item.quantite_mode) {
@@ -257,22 +236,47 @@ export default function Ventes() {
               return rows.sort((a, b) => (b.date || '').localeCompare(a.date || '')).map(row => (
                 <tr key={row.key} style={{ cursor: 'pointer' }} onClick={() => { setEditItem(row.item); setShowModal(true) }}>
                   <td>
-                    <div style={{ fontWeight: 500 }}>{row.nom}</div>
+                    <div style={{ fontWeight: 500, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.nom}</div>
                     {row.isUnit && <div style={{ fontSize: 10, color: 'var(--b)' }}>Lot · unité</div>}
                   </td>
                   <td><span className="badge" style={catBadgeStyle(row.categorie, categories)}>{row.categorie}</span></td>
-                  <td style={{ color: 'var(--b)' }}>{fmtEur(row.achat)}</td>
-                  <td style={{ color: 'var(--g)' }}>{row.vente != null ? fmtEur(row.vente) : '—'}</td>
-                  <td>{row.profit != null ? <span className={row.profit >= 0 ? 'profit-pos' : 'profit-neg'}>{row.profit >= 0 ? '+' : ''}{fmtEur(row.profit)}</span> : '—'}</td>
-                  <td>{row.roi != null ? <span className={row.roi >= 0 ? 'profit-pos' : 'profit-neg'}>{fmtPct(row.roi)}</span> : '—'}</td>
-                  <td style={{ color: 'var(--mut)' }}>{row.date ? new Date(row.date).toLocaleDateString('fr-FR') : '—'}</td>
-                  <td style={{ color: 'var(--mut)' }}>{row.plateforme || '—'}</td>
+                  <td style={{ color: 'var(--b)', whiteSpace: 'nowrap' }}>{fmtEur(row.achat)}</td>
+                  <td style={{ color: 'var(--g)', whiteSpace: 'nowrap' }}>{row.vente != null ? fmtEur(row.vente) : '—'}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{row.profit != null ? <span className={row.profit >= 0 ? 'profit-pos' : 'profit-neg'}>{row.profit >= 0 ? '+' : ''}{fmtEur(row.profit)}</span> : '—'}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{row.roi != null ? <span className={row.roi >= 0 ? 'profit-pos' : 'profit-neg'}>{fmtPct(row.roi)}</span> : '—'}</td>
+                  <td style={{ color: 'var(--mut)', whiteSpace: 'nowrap' }}>{row.date ? new Date(row.date).toLocaleDateString('fr-FR') : '—'}</td>
+                  <td style={{ color: 'var(--mut)', whiteSpace: 'nowrap' }}>{row.plateforme || '—'}</td>
                 </tr>
               ))
             })()}
           </tbody>
         </table>
+        </div>
       </div>
+
+      {pfStats.length > 0 && (
+        <div className="card" style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 14 }}>Performance par plateforme</div>
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <table style={{ width: '100%', minWidth: 400 }}>
+            <thead>
+              <tr><th>Plateforme</th><th>Nb ventes</th><th>CA</th><th>Bénéfice</th><th>ROI</th></tr>
+            </thead>
+            <tbody>
+              {pfStats.map(pf => (
+                <tr key={pf.name}>
+                  <td style={{ fontWeight: 500 }}>{pf.name}</td>
+                  <td style={{ color: 'var(--mut)' }}>{pf.nb}</td>
+                  <td style={{ color: 'var(--g)' }}>{fmtEur(pf.ca)}</td>
+                  <td><span className={pf.benef >= 0 ? 'profit-pos' : 'profit-neg'}>{pf.benef >= 0 ? '+' : ''}{fmtEur(pf.benef)}</span></td>
+                  <td><span className={pf.roi >= 0 ? 'profit-pos' : 'profit-neg'}>{fmtPct(pf.roi)}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          </div>
+        </div>
+      )}
 
       {showModal && (
         <ItemModal item={editItem} categories={categories} onSave={handleSave}
