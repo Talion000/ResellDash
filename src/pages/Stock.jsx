@@ -25,6 +25,8 @@ export default function Stock() {
   const plateformes = useMemo(() => [...new Set(items.map(i => i.plateforme_achat).filter(Boolean))], [items])
   const tailles = useMemo(() => [...new Set(items.map(i => i.taille_ref).filter(Boolean))].sort(), [items])
 
+  const STOCK_STATUTS = ['En stock', 'Acheté', 'Hold']
+
   const filtered = useMemo(() => {
     let list = items.filter(i => {
       if (alertMode) {
@@ -33,7 +35,11 @@ export default function Stock() {
       }
       if (search && !i.nom.toLowerCase().includes(search.toLowerCase()) && !(i.taille_ref || '').toLowerCase().includes(search.toLowerCase())) return false
       if (filterCat && i.categorie !== filterCat) return false
-      if (filterSt && i.statut !== filterSt) return false
+      if (filterSt) {
+        if (i.statut !== filterSt) return false
+      } else {
+        if (!STOCK_STATUTS.includes(i.statut)) return false
+      }
       if (filterPf && i.plateforme_achat !== filterPf) return false
       if (filterTaille && i.taille_ref !== filterTaille) return false
       return true
@@ -233,8 +239,13 @@ export default function Stock() {
                       <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--b)' }}>{fmtEur(totalInvesti)}</div>
                     </div>
                     <div style={{ background: 'var(--bg3)', borderRadius: 6, padding: '6px 8px' }}>
-                      <div style={{ fontSize: 9, color: 'var(--mut)', marginBottom: 2 }}>UNITÉS</div>
-                      <div style={{ fontSize: 12, fontWeight: 500 }}>{totalVendus}/{totalUnites}</div>
+                      <div style={{ fontSize: 9, color: 'var(--mut)', marginBottom: 2 }}>STATUT</div>
+                      <div style={{ fontSize: 11, fontWeight: 500 }}>
+                        {lots.every(l => l.statut === lots[0].statut)
+                          ? <span className={`status-badge ${statusClass(lots[0].statut)}`}>{lots[0].statut}</span>
+                          : `${totalVendus}/${totalUnites}`
+                        }
+                      </div>
                     </div>
                     <div style={{ background: 'var(--bg3)', borderRadius: 6, padding: '6px 8px' }}>
                       <div style={{ fontSize: 9, color: 'var(--mut)', marginBottom: 2 }}>PROFIT</div>
@@ -388,9 +399,12 @@ export default function Stock() {
                       <td style={{ color: 'var(--mut)' }}>—</td>
                       <td style={{ color: 'var(--mut)' }}>—</td>
                       <td>
-                        <span style={{ fontSize: 11, background: 'rgba(99,102,241,0.12)', color: '#818cf8', borderRadius: 6, padding: '2px 8px' }}>
-                          {totalVendus}/{totalUnites}
-                        </span>
+                        {lots.every(l => l.statut === lots[0].statut)
+                          ? <span className={`status-badge ${statusClass(lots[0].statut)}`}>{lots[0].statut}</span>
+                          : <span style={{ fontSize: 11, background: 'rgba(99,102,241,0.12)', color: '#818cf8', borderRadius: 6, padding: '2px 8px' }}>
+                              {totalVendus}/{totalUnites}
+                            </span>
+                        }
                       </td>
                       <td></td>
                     </tr>

@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip } from 'chart.js'
 import { useItemsContext } from '../hooks/ItemsContext'
 import ItemModal from '../components/ItemModal'
-import { profit, rendement, fmtEur, fmtPct, groupByMonth, formatMonth, catBadgeStyle, lotAchatTotal, lotVenteTotal, lotProfit } from '../lib/utils'
+import { profit, rendement, fmtEur, fmtPct, groupByMonth, formatMonth, catBadgeStyle, statusClass, lotAchatTotal, lotVenteTotal, lotProfit } from '../lib/utils'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip)
 
@@ -17,6 +17,12 @@ export default function Ventes() {
   const { items, categories, ventesUnitaires, updateItem, addItem } = useItemsContext()
   const [editItem, setEditItem] = useState(null)
   const [showModal, setShowModal] = useState(false)
+  const [blurNumbers, setBlurNumbers] = useState(() => {
+    try { return localStorage.getItem('ventes_blur') === 'true' } catch { return false }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('ventes_blur', blurNumbers) } catch {}
+  }, [blurNumbers])
 
   // Items vendus (normaux) + lots avec au moins 1 vente
   const sold = useMemo(() => items.filter(i => {
@@ -108,39 +114,50 @@ export default function Ventes() {
 
   return (
     <div style={{ padding: '20px 28px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-        <div style={{ fontSize: 18, fontWeight: 500, letterSpacing: '-0.3px' }}>Ventes</div>
-        {(monthFilter || yearFilter) && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ background: 'rgba(34,197,94,0.1)', border: '0.5px solid rgba(34,197,94,0.3)', borderRadius: 20, padding: '3px 12px', fontSize: 12, color: 'var(--g)' }}>
-              {monthFilter ? new Date(monthFilter + '-01').toLocaleString('fr-FR', { month: 'long', year: 'numeric' }) : yearFilter}
-            </span>
-            <button className="btn-ghost" onClick={() => window.history.back()} style={{ fontSize: 11 }}>← Retour</button>
-          </div>
-        )}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ fontSize: 18, fontWeight: 500, letterSpacing: '-0.3px' }}>Ventes</div>
+          <button onClick={() => setBlurNumbers(b => !b)}
+            style={{ background: 'var(--bg2)', border: '0.5px solid var(--brd2)', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: blurNumbers ? 'var(--text)' : 'var(--mut)', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12 }}
+            title={blurNumbers ? 'Afficher les chiffres' : 'Masquer les chiffres'}>
+            {blurNumbers
+              ? <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              : <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            }
+            {blurNumbers ? 'Afficher' : 'Masquer'}
+          </button>
+          {(monthFilter || yearFilter) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ background: 'rgba(34,197,94,0.1)', border: '0.5px solid rgba(34,197,94,0.3)', borderRadius: 20, padding: '3px 12px', fontSize: 12, color: 'var(--g)' }}>
+                {monthFilter ? new Date(monthFilter + '-01').toLocaleString('fr-FR', { month: 'long', year: 'numeric' }) : yearFilter}
+              </span>
+              <button className="btn-ghost" onClick={() => window.history.back()} style={{ fontSize: 11 }}>← Retour</button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="kpi-grid" style={{ marginBottom: 20 }}>
         <div className="kpi-card">
           <div className="kpi-label">CA total</div>
-          <div className="kpi-value" style={{ color: 'var(--g)' }}>{fmtEur(totalCA)}</div>
+          <div className="kpi-value" style={{ color: 'var(--g)', filter: blurNumbers ? 'blur(8px)' : 'none', transition: 'filter 0.2s', userSelect: blurNumbers ? 'none' : 'auto' }}>{fmtEur(totalCA)}</div>
           <div className="kpi-sub">{sold.reduce((s, i) => s + (i.quantite_mode ? (ventesUnitaires.filter(v => v.item_id === i.id).length) : 1), 0)} ventes</div>
         </div>
         <div className="kpi-card">
           <div className="kpi-label">Bénéfice net</div>
-          <div className="kpi-value" style={{ color: totalBenef >= 0 ? 'var(--g)' : 'var(--red)' }}>
+          <div className="kpi-value" style={{ color: totalBenef >= 0 ? 'var(--g)' : 'var(--red)', filter: blurNumbers ? 'blur(8px)' : 'none', transition: 'filter 0.2s', userSelect: blurNumbers ? 'none' : 'auto' }}>
             {totalBenef >= 0 ? '+' : ''}{fmtEur(totalBenef)}
           </div>
           <div className="kpi-sub" style={{ color: avgROI >= 0 ? 'var(--g)' : 'var(--red)' }}>{fmtPct(avgROI)} ROI moyen</div>
         </div>
         <div className="kpi-card">
           <div className="kpi-label">Total achats</div>
-          <div className="kpi-value" style={{ color: 'var(--b)' }}>{fmtEur(totalAchats)}</div>
+          <div className="kpi-value" style={{ color: 'var(--b)', filter: blurNumbers ? 'blur(8px)' : 'none', transition: 'filter 0.2s', userSelect: blurNumbers ? 'none' : 'auto' }}>{fmtEur(totalAchats)}</div>
           <div className="kpi-sub">investi sur items vendus</div>
         </div>
         <div className="kpi-card">
           <div className="kpi-label">Marge moyenne</div>
-          <div className="kpi-value" style={{ color: 'var(--b)' }}>
+          <div className="kpi-value" style={{ color: 'var(--b)', filter: blurNumbers ? 'blur(8px)' : 'none', transition: 'filter 0.2s', userSelect: blurNumbers ? 'none' : 'auto' }}>
             {sold.length ? fmtEur(totalBenef / sold.length) : '—'}
           </div>
           <div className="kpi-sub">par item</div>
@@ -204,14 +221,14 @@ export default function Ventes() {
         <table style={{ minWidth: 600 }}>
           <thead>
             <tr>
-              <th>Item</th><th>Catégorie</th><th>Achat</th>
+              <th>Item</th><th>Catégorie</th><th>Statut</th><th>Achat</th>
               <th>Vente</th><th>Profit</th><th>ROI</th>
               <th>Date vente</th><th>Plateforme</th>
             </tr>
           </thead>
           <tbody>
             {sold.length === 0 ? (
-              <tr><td colSpan={8}>
+              <tr><td colSpan={9}>
                 <div className="empty-state">
                   <div style={{ fontSize: 20 }}>📈</div>
                   <p>Aucune vente enregistrée pour le moment.</p>
@@ -225,12 +242,12 @@ export default function Ventes() {
                   ventes.forEach(v => {
                     const p = v.prix_vente != null ? v.prix_vente - item.prix_achat : null
                     const r = p != null && item.prix_achat ? (p / item.prix_achat) * 100 : null
-                    rows.push({ key: v.id, nom: item.nom, categorie: item.categorie, achat: item.prix_achat, vente: v.prix_vente, profit: p, roi: r, date: v.date_vente, plateforme: item.plateforme_achat, item, isUnit: true })
+                    rows.push({ key: v.id, nom: item.nom, categorie: item.categorie, statut: 'Vendu', achat: item.prix_achat, vente: v.prix_vente, profit: p, roi: r, date: v.date_vente, plateforme: item.plateforme_achat, item, isUnit: true })
                   })
                 } else {
                   const p = profit(item)
                   const r = rendement(item)
-                  rows.push({ key: item.id, nom: item.nom, categorie: item.categorie, achat: item.prix_achat, vente: item.prix_vente, profit: p, roi: r, date: item.date_vente, plateforme: item.plateforme_achat, item, isUnit: false })
+                  rows.push({ key: item.id, nom: item.nom, categorie: item.categorie, statut: item.statut, achat: item.prix_achat, vente: item.prix_vente, profit: p, roi: r, date: item.date_vente, plateforme: item.plateforme_achat, item, isUnit: false })
                 }
               })
               return rows.sort((a, b) => (b.date || '').localeCompare(a.date || '')).map(row => (
@@ -240,6 +257,7 @@ export default function Ventes() {
                     {row.isUnit && <div style={{ fontSize: 10, color: 'var(--b)' }}>Lot · unité</div>}
                   </td>
                   <td><span className="badge" style={catBadgeStyle(row.categorie, categories)}>{row.categorie}</span></td>
+                  <td>{row.statut ? <span className={`status-badge ${statusClass(row.statut)}`}>{row.statut}</span> : '—'}</td>
                   <td style={{ color: 'var(--b)', whiteSpace: 'nowrap' }}>{fmtEur(row.achat)}</td>
                   <td style={{ color: 'var(--g)', whiteSpace: 'nowrap' }}>{row.vente != null ? fmtEur(row.vente) : '—'}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>{row.profit != null ? <span className={row.profit >= 0 ? 'profit-pos' : 'profit-neg'}>{row.profit >= 0 ? '+' : ''}{fmtEur(row.profit)}</span> : '—'}</td>
