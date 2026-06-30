@@ -47,6 +47,7 @@ export default function Sidebar() {
       <NavLink to="/" end style={navStyle}><IconGrid /> Dashboard</NavLink>
       <NavLink to="/stock" style={navStyle}><IconList /> Stock</NavLink>
       <NavLink to="/ventes" style={navStyle}><IconChart /> Ventes</NavLink>
+      <NavLink to="/preuves" style={navStyle}><IconCamera /> Preuves</NavLink>
       <NavLink to="/recap" style={navStyle}><IconDoc /> Récap fiscal</NavLink>
       {isAdmin && <NavLink to="/admin" style={navStyle}><IconAdmin /> Admin</NavLink>}
       <NavLink to="/settings" style={navStyle}><IconSettings /> Paramètres</NavLink>
@@ -101,6 +102,7 @@ export default function Sidebar() {
 const IconGrid = () => <svg width="13" height="13" fill="currentColor" viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
 const IconList = () => <svg width="13" height="13" fill="currentColor" viewBox="0 0 16 16"><path d="M2 3h12v2H2zm0 4h12v2H2zm0 4h8v2H2z"/></svg>
 const IconChart = () => <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 16 16"><polyline points="1,11 5,7 9,9 15,3"/></svg>
+const IconCamera = () => <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 16 16"><path d="M2 5h2l1-1.5h6L12 5h2v8H2V5z"/><circle cx="8" cy="9" r="2.3"/></svg>
 const IconDoc = () => <svg width="13" height="13" fill="currentColor" viewBox="0 0 16 16"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h8V5H4zm0 3v1h8V8H4zm0 3v1h5v-1H4z"/></svg>
 const IconAdmin = () => <svg width="13" height="13" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a3 3 0 110 6A3 3 0 018 1zm0 8c-3.3 0-6 1.3-6 3v1h12v-1c0-1.7-2.7-3-6-3z"/></svg>
 const IconSettings = () => <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.05 3.05l1.06 1.06M11.89 11.89l1.06 1.06M3.05 12.95l1.06-1.06M11.89 4.11l1.06-1.06"/></svg>

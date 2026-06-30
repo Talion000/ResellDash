@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip } from 'chart.js'
 import { useItemsContext } from '../hooks/ItemsContext'
@@ -11,6 +11,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip)
 const EXCLUDED = ['Remboursé', 'En retour']
 
 export default function Ventes() {
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const monthFilter = searchParams.get('month') || ''
   const yearFilter = searchParams.get('year') || ''
@@ -117,6 +118,9 @@ export default function Ventes() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ fontSize: 18, fontWeight: 500, letterSpacing: '-0.3px' }}>Ventes</div>
+          <button className="btn-secondary" onClick={() => navigate('/preuves')} style={{ fontSize: 12 }}>
+            📸 Preuves
+          </button>
           <button onClick={() => setBlurNumbers(b => !b)}
             style={{ background: 'var(--bg2)', border: '0.5px solid var(--brd2)', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: blurNumbers ? 'var(--text)' : 'var(--mut)', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12 }}
             title={blurNumbers ? 'Afficher les chiffres' : 'Masquer les chiffres'}>
@@ -209,7 +213,6 @@ export default function Ventes() {
             )}
           </div>
         </div>
-      )}
       )}
 
       <div className="table-container" style={{ marginBottom: 20 }}>

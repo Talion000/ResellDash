@@ -11,6 +11,7 @@ import Recap from '../pages/Recap'
 import Admin from '../pages/Admin'
 import Settings from '../pages/Settings'
 import ArticlePage from '../pages/ArticlePage'
+import Preuves from '../pages/Preuves'
 
 function MobileNav() {
   const [showScan, setShowScan] = useState(false)
@@ -84,6 +85,7 @@ export default function Layout() {
             <Route path="/stock" element={<Stock />} />
             <Route path="/article/:nom" element={<ArticlePage />} />
             <Route path="/ventes" element={<Ventes />} />
+            <Route path="/preuves" element={<Preuves />} />
             <Route path="/recap" element={<Recap />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/settings" element={<Settings />} />
